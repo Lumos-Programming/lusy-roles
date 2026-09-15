@@ -1,0 +1,39 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/suzuki-shunsuke/tfcmt/v4.14.19/json-schema/tfcmt.json
+templates:
+  plan_title: '## {{if eq .ExitCode 1}}❌ {{end}}Terraform plan（Lusy本番）'
+  apply_title: '## {{if eq .ExitCode 0}}✅{{else}}❌{{end}} Terraform apply（Lusy本番）'
+  deletion_warning: |
+    {{if .HasDestroy}}
+    ### ⚠️ 権限の取り消しを含みます
+    Organizationからの脱退やロールの削除が意図した内容か確認してください。
+    {{end}}
+  changed_result: |
+    {{if .ChangedResult}}
+    <details><summary>変更差分</summary>
+
+    {{wrapCode .ChangedResult}}
+    </details>
+    {{end}}
+  change_outside_terraform: |
+    {{if .ChangeOutsideTerraform}}
+    <details><summary>Terraform外で変更された権限</summary>
+
+    {{wrapCode .ChangeOutsideTerraform}}
+    </details>
+    {{end}}
+  warning: |
+    {{if .Warning}}
+    ### ⚠️ 警告
+    {{wrapCode .Warning}}
+    {{end}}
+  error_messages: |
+    {{if .ErrorMessages}}
+    ### ❌ エラー
+    {{range .ErrorMessages}}
+    - {{.}}
+    {{end}}
+    {{end}}
+terraform:
+  plan:
+    # PRコメントのみを更新し、ラベルは変更しない。
+    disable_label: true

@@ -108,6 +108,10 @@ Actionsは実行ごとに短期のインストールトークンを発行し、T
 
 自動実行に個人のPersonal Access Tokenを使わず、必要な鍵更新はOrganizationの管理者が行います。
 
+### tfcmtのコメント用トークン
+
+`tfcmt`には、GitHub Actions標準のトークンを`TFCMT_GITHUB_TOKEN`として渡します。Applyジョブに`pull-requests: write`を設定しているため、追加のSecretやGitHub Appの権限追加は不要です。Organizationのメンバー権限を変更するAppトークンは、Terraform用の`GITHUB_TOKEN`として別に渡します。
+
 ## 4. 開発者チーム所有のDiscord Bot
 
 Discord Developer Portalで複数人の開発者チームを用意し、そのチーム所有のアプリケーションを使います。

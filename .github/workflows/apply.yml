@@ -27,6 +27,7 @@ jobs:
     permissions:
       contents: read
       id-token: write
+      pull-requests: write
     env:
       TF_IN_AUTOMATION: 'true'
       TF_INPUT: 'false'
@@ -69,6 +70,19 @@ jobs:
               exit 1
             fi
           done
+      - name: 差分の投稿先PRを確認
+        id: comment-target
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          pr_number="$(gh api "repos/$GITHUB_REPOSITORY/commits/$GITHUB_SHA/pulls" \
+            --jq 'map(select(.merged_at != null and .base.ref == "main")) | .[0].number // 0')"
+          echo "pr_number=$pr_number" >> "$GITHUB_OUTPUT"
+          if [[ "$pr_number" == "0" ]]; then
+            echo '対応するマージ済みPRがないため、差分は実行サマリーに表示します。'
+          else
+            echo "差分の投稿先: PR #$pr_number"
+          fi
       - name: OIDCでGoogle Cloudに認証
         uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3
         with:
@@ -87,17 +101,35 @@ jobs:
           private-key: ${{ secrets.GH_APP_PRIVATE_KEY }}
           owner: Lumos-Programming
           permission-members: write
-      - name: 変更内容のplanを作成
+      - name: tfcmtでplanの差分を投稿
         env:
           GITHUB_TOKEN: ${{ steps.github-app.outputs.token }}
           DISCORD_BOT_TOKEN: ${{ secrets.DISCORD_BOT_TOKEN }}
-        run: terraform -chdir=terraform plan -input=false -lock-timeout=5m -out=roles.tfplan
-      - name: 保存したplanを適用
+          TFCMT_GITHUB_TOKEN: ${{ github.token }}
+          TFCMT_PR_NUMBER: ${{ steps.comment-target.outputs.pr_number }}
+          TFCMT_SHA: ${{ github.sha }}
+        run: |
+          comment_options=()
+          if [[ "$TFCMT_PR_NUMBER" == "0" ]]; then
+            comment_options+=(--output "$GITHUB_STEP_SUMMARY")
+          fi
+          tfcmt "${comment_options[@]}" plan --patch -- \
+            terraform -chdir=terraform plan -no-color -input=false -lock-timeout=5m -out=roles.tfplan
+      - name: 保存したplanを適用しtfcmtで結果を投稿
         if: inputs.apply
         env:
           GITHUB_TOKEN: ${{ steps.github-app.outputs.token }}
           DISCORD_BOT_TOKEN: ${{ secrets.DISCORD_BOT_TOKEN }}
-        run: terraform -chdir=terraform apply -input=false -lock-timeout=5m roles.tfplan
+          TFCMT_GITHUB_TOKEN: ${{ github.token }}
+          TFCMT_PR_NUMBER: ${{ steps.comment-target.outputs.pr_number }}
+          TFCMT_SHA: ${{ github.sha }}
+        run: |
+          comment_options=()
+          if [[ "$TFCMT_PR_NUMBER" == "0" ]]; then
+            comment_options+=(--output "$GITHUB_STEP_SUMMARY")
+          fi
+          tfcmt "${comment_options[@]}" apply -- \
+            terraform -chdir=terraform apply -no-color -input=false -lock-timeout=5m roles.tfplan
       - name: 実行結果を記録
         env:
           APPLY_REQUESTED: ${{ inputs.apply }}

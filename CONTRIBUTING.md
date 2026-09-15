@@ -11,7 +11,7 @@ aqua install
 just test
 ```
 
-`aqua.yaml`でjust、Terraform、GitHub CLI、Google Cloud CLI、uv、actionlint、shellcheckのバージョンを管理します。Pythonはaquaで導入したuvが`.python-version`に従って用意します。OSにPythonを別途インストールする必要はありません。
+`aqua.yaml`でjust、Terraform、tfcmt、GitHub CLI、Google Cloud CLI、uv、actionlint、shellcheckのバージョンを管理します。Pythonはaquaで導入したuvが`.python-version`に従って用意します。OSにPythonを別途インストールする必要はありません。
 
 Git・Bashは実行環境に必要です。初回はCLI、Python、Terraformプロバイダーのダウンロードが発生します。CIもaquaで同じCLI定義を使用します。Google Cloud CLIをローカルで初めて使う際は、uvのPythonを指定して認証できます。
 

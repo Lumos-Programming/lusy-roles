@@ -6,6 +6,7 @@ registries:
 packages:
   - name: casey/just@1.58.0
   - name: hashicorp/terraform@v1.14.1
+  - name: suzuki-shunsuke/tfcmt@v4.14.19
   - name: astral-sh/uv@0.12.15
   - name: rhysd/actionlint@v1.7.12
   - name: koalaman/shellcheck@v0.11.0
