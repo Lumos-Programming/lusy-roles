@@ -38,11 +38,15 @@ Lusyは、Lumosのシステムを管理するチームです。このリポジ�
 | GitHub Organization | `Lumos-Programming` |
 | DiscordサーバーID | `1368752707321729158` |
 | 申請できるロール | `lusy` |
-| `lusy`が付与するGitHubチーム | `lusy` / `member` |
+| `lusy`が付与するGitHubチーム | `Lusy`配下の`[Lusy] Lumos Web`（slug: `lusy-lumos-web`）/ `member` |
 | `lusy`が付与するDiscordロール | Lumos Web / `1381977862831083590` |
 | state保存先 | `gs://lusy-roles-state/lusy-roles/production/default.tfstate` |
 
 GitHubチームとDiscordロールは既存のものを使います。このリポジトリが管理するのは、Organizationへの所属と、チーム・ロールへの割り当てです。チームやロール自体の作成、GitHubリポジトリへの権限、Discordロールの権限内容は別途設定します。
+
+**メンバー定義が、その人の所属先とロールの正とする一覧になります。** 対象者の既存のGitHubチームへの直接所属とDiscordロールを自動検出し、YAMLにない割り当ては削除予定に表示します。未登録の人は対象外です。GitHubの継承所属、Discordの`@everyone`と連携サービスが管理するロールは直接操作しません。
+
+`lusy-lumos-web`への所属により、親チーム`Lusy`のアクセス権限も継承します。親チームへの直接所属は別の割り当てなので、必要な場合だけロール一覧に明示します。
 
 ## メンバー定義の例
 
@@ -64,7 +68,7 @@ config/organization.yaml    OrganizationとDiscordサーバーの設定
 config/roles.yaml           申請用ロールと実際の権限の対応
 terraform/                  メンバー定義から権限を管理するTerraform
 terraform/tests/            外部APIを使わないTerraformテスト
-scripts/                    入力検証とGCS初期構築用スクリプト
+scripts/                    入力検証・既存所属の検出・GCS初期構築
 .github/workflows/          PR・mainの検証と承認後の手動適用
 .github/CODEOWNERS          権限変更をレビューする管理者チーム
 ```
@@ -85,6 +89,8 @@ PRの`Validate`では、認証情報を使わずに入力・YAMLの書式・Terr
 **planは承認不要です。** メンバーファイルを変更するPRの作成・再オープン・追加push・Ready for reviewへの変更時に自動実行します。Draftの間は実行しません。承認ルールのない`plan` Environmentを使い、PRから取得するのはメンバーYAMLだけです。Terraformやロール一覧はmainのものを使います。対象は最新のmainを取り込んだ、メンバーファイルだけを変更するPRです。手動再実行の方法は[運用ガイド](docs/operations.md#マージ前のprでplanを確認する)を参照してください。
 
 `Apply`は保存したplanを適用し、同時に一つだけ実行します。承認対象のコミットを固定し、承認待ちの間に`main`が更新された場合は停止します。最新の`main`から再度起動してください。GitHubとDiscordをまたぐ変更は一括で成功・失敗する処理ではなく、途中で失敗した場合は一部だけ反映されることがあります。
+
+planでは本番stateを一時ローカルstateへコピーし、検出した既存割り当てをそのコピーにimportします。本番stateと実際の権限は変更しません。承認後のapplyでは既存割り当てを本番stateにimportしてから、最新のplanを作成・適用します。
 
 planの差分とapplyの結果は、`tfcmt`が対象PRへコメントします。PR指定時はそのPRに、mainの実行時は対象コミットに対応するマージ済みPRに投稿します。対応するPRがない場合は、Actionsの実行サマリーに表示します。
 

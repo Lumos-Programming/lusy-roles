@@ -50,15 +50,23 @@ resource "github_membership" "members" {
   role     = each.value.github_org_role
 }
 
+data "github_team" "teams" {
+  for_each = toset([for membership in local.github_team_memberships : membership.team])
+
+  slug         = each.key
+  summary_only = true
+}
+
 resource "github_team_membership" "members" {
   for_each = local.github_team_memberships
 
-  team_id  = each.value.team
+  # import後も同じ値を使い、slugと数値IDの違いによる再作成を防ぐ。
+  team_id  = data.github_team.teams[each.value.team].id
   username = github_membership.members[each.value.member_key].username
   role     = each.value.role
 }
 
-# 個別のロール付与APIを使い、管理対象外のロールには触れない。
+# 既存の割り当てはprepare_membership_state.pyがplan前に取り込む。
 # 全IDをキーに含め、ID変更時は旧権限の削除と新権限の作成を行う。
 resource "discord_role_member" "members" {
   for_each = local.discord_role_memberships

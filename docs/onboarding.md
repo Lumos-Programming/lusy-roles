@@ -37,7 +37,9 @@ roles:
 | `discord_user_id` | コピーした自分のDiscordユーザーID |
 | `roles` | 希望するロールの配列。Lusyへの参加は`["lusy"]` |
 
-`lusy`は、GitHubの`Lusy`チームへの所属と、Discordの`Lumos Web`ロールを付与します。利用できるロールは[ロール一覧](../config/roles.yaml)で確認できます。
+`lusy`は、GitHubの`Lusy`配下にある`[Lusy] Lumos Web`チーム（slug: `lusy-lumos-web`）への所属と、Discordの`Lumos Web`ロールを付与します。利用できるロールは[ロール一覧](../config/roles.yaml)で確認できます。
+
+登録後は、この定義にない既存のGitHubチームへの直接所属とDiscordロールも取り消し対象です。Lusy以外で必要な権限がある場合も、管理者と相談してロール一覧に含めてください。Discordの`@everyone`と連携サービス管理ロール、GitHubの子チーム経由の継承所属は対象外です。
 
 一つのファイルに複数人を書いたり、秘密鍵・Botトークン・メールアドレスなど申請に不要な情報を入れたりしないでください。公開リポジトリの場合、ユーザーIDの対応も公開されます。
 
@@ -70,7 +72,7 @@ PRをReady for reviewにすると、承認なしで[PRのplan](operations.md#マ
 マージ後、管理者がApplyを手動起動し、Environmentで承認します。`Apply`が成功したら、次を確認してください。
 
 - GitHub Organizationへの招待が届いた場合は承諾する。
-- `Lumos-Programming`の`Lusy`チームに所属できている。
+- `Lumos-Programming`の`[Lusy] Lumos Web`チームに所属できている。
 - Discordで`Lumos Web`ロールが付いている。
 - 担当者から案内されたリポジトリやチャンネルを利用できる。
 

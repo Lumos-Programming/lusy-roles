@@ -12,9 +12,9 @@
 
 ```yaml
 lusy:
-  description: GitHubのLusyチームへの所属とDiscordのLumos Webロール
+  description: GitHubの[Lusy] Lumos Webチームへの所属とDiscordのLumos Webロール
   github_teams:
-    lusy: member
+    lusy-lumos-web: member
   discord_role_ids:
     - "1381977862831083590"
 ```
@@ -24,15 +24,17 @@ lusy:
 - 同じGitHubチームへの要求が重なると、高い権限を採用する。
 - 同じDiscordロールへの要求は重複させず、一つの割り当てとして管理する。
 - Organization所有者は、指定したGitHubチーム内で`maintainer`になる。
-- Discordは個別のロール付与・削除APIを使い、管理対象外のロールは維持する。
+- 対象者の既存の直接割り当てを検出し、定義にないGitHubチーム所属・Discordロールは取り消す。
+- GitHubの子チーム経由の継承所属は直接管理しない。`lusy-lumos-web`は親`lusy`のアクセス権限を継承する。
+- Discordの`@everyone`と`managed: true`の連携サービス管理ロールは維持する。
 
 ## 権限の取り消しと退会
 
 | ファイルの変更 | 適用される結果 |
 | --- | --- |
 | `roles`から一つ削除 | 他のロールからも付与されている権限を除き、そのロールの権限を取り消す |
-| `roles: []`にする | 管理中のGitHubチーム・Discordロールを取り消し、GitHub Organizationには残す |
-| メンバーファイルを削除 | 管理中のDiscordロール・GitHubチーム・**GitHub Organization全体への所属**を取り消す |
+| `roles: []`にする | 既存のGitHubチームへの直接所属・操作可能なDiscordロールを取り消し、GitHub Organizationには残す |
+| メンバーファイルを削除 | 前回のstateで対象者を特定し、既存のDiscordロール・GitHubチーム・**GitHub Organization全体への所属**を取り消す |
 
 Organizationからの脱退は、Lusy以外のチームやリポジトリへのアクセスにも影響します。Lumosに残る人のファイルは削除せず、適切なロール一覧に変更してください。Discordロールを削除しても、サーバーからは追放しません。
 
@@ -70,6 +72,10 @@ PRからは指定SHAのメンバー定義だけを一時ディレクトリへ取
 
 このモードも本番stateとAPIを参照するため、`plan` EnvironmentにGCS・App・Botを設定し、リポジトリ変数を`TERRAFORM_ENABLED=true`にする必要があります。plan用のGitHub AppトークンはMembersの読み取り権限だけを要求します。未設定の状態で成功する`Validate`のモックテストは、本番planの代わりにはなりません。
 
+`scripts/prepare_membership_state.py`が既存割り当てを検出し、本番stateの一時コピーにCLI importしてからplanします。GCSバックエンドは一時コピーには含めません。このため、Terraformで未管理だった割り当ても削除予定に表示され、本番stateには書き込みません。
+
+対象は今回のメンバー定義と前回のstateにあるアカウントです。OrganizationやDiscordサーバーの全員を一括削除する動作ではありません。APIの権限不足や一覧取得失敗は処理を停止し、「所属なし」として続行しません。
+
 ### マージ後の適用
 
 差分を確認してから適用を判断する場合は、次の順で実行してください。
@@ -78,7 +84,7 @@ PRからは指定SHAのメンバー定義だけを一時ディレクトリへ取
 2. PRのtfcmtコメントで追加・変更・取り消しの差分を確認する。
 3. 適用する場合は同じコミットから`apply`をオンにして新しく起動し、Environmentで承認する。
 
-2回目の実行でもplanを作り直します。外部で権限が変更されると差分が変わる場合があるため、tfcmtコメントの対象コミットと実行リンクを確認してください。
+2回目の実行では、承認後に既存割り当てをGCSの本番stateへimportし、planを作り直します。import自体は割り当てを変更しませんが、本番stateは更新します。外部で権限が変更されると差分が変わる場合があるため、tfcmtコメントの対象コミットと実行リンクを確認してください。
 
 コメントは公開PRに表示されます。現在のメンバー定義と同様に、対象のユーザーIDやロール割り当てを含みます。機密値を追加する場合は、Terraformのsensitive指定とコメント内容も確認してください。
 
@@ -100,21 +106,13 @@ PRからは指定SHAのメンバー定義だけを一時ディレクトリへ取
 
 既存のOrganization所有者を追加するときは、`github_org_role`を`admin`にします。`member`を指定すると降格を要求します。
 
-既存の所属を取り込む場合、メンバー定義を追加したうえで、最初の適用前に管理者がimportします。Googleのローカル認証には管理者グループに所属するアカウントを使います。
+既存の所属はActionsが自動的に検出・importするため、通常は手動importが不要です。最初のPR planから、定義済みの所属の維持・権限変更と、定義にない割り当ての削除を確認できます。GitHubリポジトリへの直接アクセス、カスタムOrganizationロール、メールアドレスだけの未承諾招待は、この構成の管理対象に含みません。
 
-```sh
-uv run --locked python scripts/validate.py
-gcloud auth application-default login
-terraform -chdir=terraform init -input=false -lockfile=readonly
-# 組織Appの短期トークンをGITHUB_TOKEN、BotトークンをDISCORD_BOT_TOKENに設定する。
-# 認証情報はシェル履歴やファイルに直接書かず、認証情報管理ツールから渡す。
-terraform -chdir=terraform import 'github_membership.members["alice"]' Lumos-Programming:alice
-terraform -chdir=terraform import 'github_team_membership.members["alice/lusy"]' lusy:alice
-terraform -chdir=terraform import 'discord_role_member.members["1368752707321729158/123456789012345678/1381977862831083590"]' 1368752707321729158:1381977862831083590:123456789012345678
-terraform -chdir=terraform plan
-```
+Botは削除対象を含むすべての操作対象ロールより上に配置してください。Botより上にある通常ロールも削除予定として表示されますが、Discord側で権限が不足するとapplyは失敗します。
 
 同じ所属を複数のstateから管理しないでください。別の構成で全員を一括管理する`github_team_members`を使っている場合も、この構成の個別管理と競合します。
+
+自動検出・取り込みはActionsの前処理です。`terraform plan`を直接実行しただけでは未管理の割り当ては検出されません。通常の実環境確認と適用にはActionsを使ってください。
 
 ## stateの復旧
 

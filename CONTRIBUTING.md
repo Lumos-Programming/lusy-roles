@@ -47,6 +47,7 @@ YAMLの書式はyamlfmtで統一し、設定は`.yamlfmt.yaml`に置きます。
 | 申請可能なロールの追加 | `config/roles.yaml` |
 | Organization・Discordサーバーの変更 | `config/organization.yaml`と関連するApp・OIDC設定 |
 | 権限の展開方法の変更 | `terraform/main.tf`と`terraform/tests/` |
+| 既存割り当ての検出・取り込み | `scripts/prepare_membership_state.py`と`tests/test_prepare_membership_state.py` |
 | 入力形式の変更 | `scripts/validate.py`、`tests/`、例、各ガイド |
 | CLIの更新 | `aqua.yaml`と必要に応じて`.python-version` |
 | uv・Python依存の更新 | `pyproject.toml`と`uv.lock`（変更後に`uv lock`） |

@@ -143,6 +143,20 @@ jobs:
           private-key: ${{ secrets.GH_APP_PRIVATE_KEY }}
           owner: Lumos-Programming
           permission-members: ${{ inputs.apply && 'write' || 'read' }}
+      - name: 既存の割り当てを検出してstateに取り込む
+        id: memberships
+        env:
+          GITHUB_TOKEN: ${{ steps.github-app.outputs.token }}
+          DISCORD_BOT_TOKEN: ${{ secrets.DISCORD_BOT_TOKEN }}
+          PR_MEMBERS_PATH: ${{ steps.pr-input.outputs.members_path }}
+          APPLY_REQUESTED: ${{ inputs.apply }}
+        run: |
+          options=(--members-path "${PR_MEMBERS_PATH:-members}")
+          # planは本番stateのコピーを使い、一時ローカルstateだけにimportする。
+          if [[ "$GITHUB_EVENT_NAME" == "workflow_dispatch" && "$APPLY_REQUESTED" == "true" && -z "$PR_NUMBER" ]]; then
+            options+=(--adopt-remote)
+          fi
+          uv run --locked python scripts/prepare_membership_state.py "${options[@]}"
       - name: tfcmtでplanの差分を投稿
         env:
           GITHUB_TOKEN: ${{ steps.github-app.outputs.token }}
@@ -150,18 +164,14 @@ jobs:
           TFCMT_GITHUB_TOKEN: ${{ github.token }}
           TFCMT_PR_NUMBER: ${{ steps.comment-target.outputs.pr_number }}
           TFCMT_SHA: ${{ steps.pr-input.outputs.head_sha || github.sha }}
-          PR_MEMBERS_PATH: ${{ steps.pr-input.outputs.members_path }}
+          TERRAFORM_DIR: ${{ steps.memberships.outputs.terraform_dir }}
         run: |
           comment_options=()
-          plan_options=()
-          if [[ -n "$PR_MEMBERS_PATH" ]]; then
-            plan_options+=("-var=members_path=$PR_MEMBERS_PATH")
-          fi
           if [[ "$TFCMT_PR_NUMBER" == "0" ]]; then
             comment_options+=(--output "$GITHUB_STEP_SUMMARY")
           fi
           tfcmt "${comment_options[@]}" plan --patch -- \
-            terraform -chdir=terraform plan -no-color -input=false -lock-timeout=5m -out=roles.tfplan "${plan_options[@]}"
+            terraform -chdir="$TERRAFORM_DIR" plan -no-color -input=false -lock-timeout=5m -out=roles.tfplan
       - name: 保存したplanを適用しtfcmtで結果を投稿
         if: github.event_name == 'workflow_dispatch' && inputs.apply && env.PR_NUMBER == ''
         env:
@@ -170,13 +180,14 @@ jobs:
           TFCMT_GITHUB_TOKEN: ${{ github.token }}
           TFCMT_PR_NUMBER: ${{ steps.comment-target.outputs.pr_number }}
           TFCMT_SHA: ${{ github.sha }}
+          TERRAFORM_DIR: ${{ steps.memberships.outputs.terraform_dir }}
         run: |
           comment_options=()
           if [[ "$TFCMT_PR_NUMBER" == "0" ]]; then
             comment_options+=(--output "$GITHUB_STEP_SUMMARY")
           fi
           tfcmt "${comment_options[@]}" apply -- \
-            terraform -chdir=terraform apply -no-color -input=false -lock-timeout=5m roles.tfplan
+            terraform -chdir="$TERRAFORM_DIR" apply -no-color -input=false -lock-timeout=5m roles.tfplan
       - name: 実行結果を記録
         env:
           APPLY_REQUESTED: ${{ inputs.apply }}
