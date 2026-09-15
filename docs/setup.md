@@ -20,6 +20,8 @@
 
 GitHub ActionsのEnvironmentに`production`を作成し、デプロイ可能なブランチを`main`に限定します。**Required reviewersに管理者チームを設定し、可能ならPrevent self-reviewを有効にしてください。** マージ後も明示的なデプロイ承認を必須にします。管理者の承認迂回も無効にしてください。
 
+plan用に`plan` Environmentも作成し、こちらもブランチを`main`に限定します。**`plan`にはRequired reviewersや待機時間を設定しません。** `apply`をオフにした実行は`plan`を使用し、オンにした実行だけが`production`で承認を待ちます。
+
 Environmentの承認者はYAMLでは設定できません。GitHub側での設定が必要です。利用プラン・公開範囲によりEnvironmentの承認ルールを利用できない場合でも、この構成は手動起動しなければ適用しません。別担当者の承認まで必須にする運用は、対応プランまたは公開範囲で承認ルールを有効にしてから開始してください。
 
 ## 2. GCSとOIDC認証
@@ -72,13 +74,15 @@ bash scripts/bootstrap-gcs.sh
 信頼条件を以下に限定します。
 
 - 対象リポジトリと`Lumos-Programming`の変更されない数値ID。
-- `main`ブランチと`production` Environment。
+- `main`ブランチと`plan`または`production` Environment。
 - `.github/workflows/apply.yml`。
 - `workflow_dispatch`イベントのみ。
 
 リポジトリ名やワークフローファイル名を変更するときは、信頼条件も変更してください。Poolはこの用途専用にします。同じPoolへのProvider追加は認証可能な主体を増やすことがあります。
 
-Googleサービスアカウントの秘密鍵は作成しません。スクリプトが出力する以下の値を、`production`のVariablesまたはリポジトリのVariablesに設定します。
+既にOIDCを構築済みでsubjectを`production`だけに限定している場合は、`repo:Lumos-Programming/lusy-roles:environment:plan`も許可します。リポジトリID・main・ワークフロー・イベントの制限は維持してください。
+
+Googleサービスアカウントの秘密鍵は作成しません。スクリプトが出力する以下の値を、`plan`と`production`両方のVariables、または共通のリポジトリVariablesに設定します。
 
 | 変数 | 値 |
 | --- | --- |
@@ -97,14 +101,14 @@ Googleサービスアカウントの秘密鍵は作成しません。スクリ�
 
 この構成にはリポジトリのwrite権限は不要です。Appのインストール先リポジトリは本リポジトリに限定できます。
 
-GitHubリポジトリの **Settings → Environments → production** を開き、次を設定します。秘密鍵とBotトークンはEnvironment secrets、App IDはEnvironment variablesに登録します。
+GitHubリポジトリの **Settings → Environments** を開き、`plan`と`production`の両方に次を設定します。秘密鍵とBotトークンはEnvironment secrets、App IDはEnvironment variablesに登録します。plan専用Appを使う場合はMembersの読み取り権限だけで構いません。
 
 | 種別 | 名前 | 値 |
 | --- | --- | --- |
 | Variable | `GH_APP_ID` | GitHub AppのID |
 | Secret | `GH_APP_PRIVATE_KEY` | 発行したPEM秘密鍵の内容全体 |
 
-Actionsは実行ごとに短期のインストールトークンを発行し、Terraformに`GITHUB_TOKEN`として渡します。トークンはジョブ終了時にActionが失効させます。リポジトリ標準の`GITHUB_TOKEN`ではOrganizationのメンバー管理はできません。
+Actionsは実行ごとに短期のインストールトークンを発行し、Terraformに`GITHUB_TOKEN`として渡します。planではMembers: Read、applyではMembers: Writeを要求します。トークンはジョブ終了時にActionが失効させます。リポジトリ標準の`GITHUB_TOKEN`ではOrganizationのメンバー管理はできません。
 
 自動実行に個人のPersonal Access Tokenを使わず、必要な鍵更新はOrganizationの管理者が行います。
 
@@ -119,7 +123,7 @@ Discord Developer Portalで複数人の開発者チームを用意し、その�
 1. Botをサーバー`1368752707321729158`に招待する。
 2. **Manage Roles**権限を付与する。
 3. Botのロールを、Lumos Web（`1381977862831083590`）より上に配置する。
-4. Botトークンを`production`のSecret **`DISCORD_BOT_TOKEN`**に保存する。
+4. Botトークンを`plan`と`production`両方のSecret **`DISCORD_BOT_TOKEN`**に保存する。
 
 `Bot `という接頭辞は付けずに保存します。BotにはAdministrator権限は不要です。追加で管理するロールもBotより下に置き、`@everyone`や外部連携が管理するロールは対象に含めません。
 
@@ -131,7 +135,7 @@ Discord Developer Portalで複数人の開発者チームを用意し、その�
 
 1. Actionsの`Apply`を開く。
 2. `main`を選択し、`apply`をオフのまま手動実行する。
-3. `production`の承認後、GCS接続とplanを確認する。
+3. 承認なしで実行されるplanで、GCS接続と差分を確認する。
 4. 最初の実メンバーのPRを作成し、[マージ前plan](operations.md#マージ前のprでplanを確認する)で差分を確認する。既存メンバーは[取り込み手順](operations.md#既存メンバーの取り込み)も確認してからレビュー・マージする。
 5. 最新の`main`でApplyを起動し、`apply`をオンにする。
 6. 管理者が`production`のReview deploymentsで対象コミットを確認し、承認する。

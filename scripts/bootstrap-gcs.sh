@@ -54,7 +54,7 @@ gcloud iam workload-identity-pools create "$POOL_ID" \
 # 別の所有者にアクセス権が移らないようにする。
 CONDITION="assertion.repository_owner_id == '$OWNER_ID' && assertion.repository_id == '$REPOSITORY_ID'"
 CONDITION="$CONDITION && assertion.ref == 'refs/heads/main'"
-CONDITION="$CONDITION && assertion.sub == 'repo:$GITHUB_REPOSITORY:environment:production'"
+CONDITION="$CONDITION && assertion.sub in ['repo:$GITHUB_REPOSITORY:environment:plan', 'repo:$GITHUB_REPOSITORY:environment:production']"
 CONDITION="$CONDITION && assertion.workflow_ref == '$GITHUB_REPOSITORY/.github/workflows/apply.yml@refs/heads/main'"
 CONDITION="$CONDITION && assertion.event_name == 'workflow_dispatch'"
 

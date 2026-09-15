@@ -27,11 +27,11 @@ concurrency:
 
 jobs:
   apply:
-    name: 承認後にplan・apply
+    name: ${{ inputs.apply && '承認後にapply' || 'plan（承認不要）' }}
     if: github.ref == 'refs/heads/main' && vars.TERRAFORM_ENABLED == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    environment: production
+    environment: ${{ inputs.apply && 'production' || 'plan' }}
     permissions:
       contents: read
       id-token: write
@@ -43,7 +43,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          # Environmentで承認した実行のコミットを固定する。
+          # 手動起動した実行のコミットを固定する。
           ref: ${{ github.sha }}
           fetch-depth: 0
           persist-credentials: false
@@ -71,14 +71,14 @@ jobs:
         run: |
           uv run --locked python scripts/validate.py
           terraform fmt -check -recursive terraform
-      - name: 承認対象が現在のmainであることを確認
+      - name: 実行対象が現在のmainであることを確認
         env:
           GH_TOKEN: ${{ github.token }}
           REQUESTED_SHA: ${{ github.sha }}
         run: |
           latest_sha="$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq '.object.sha')"
           if [[ "$REQUESTED_SHA" != "$latest_sha" ]]; then
-            echo '::error::承認待ちの間にmainが更新されました。最新のmainから新しく実行してください。'
+            echo '::error::起動後にmainが更新されました。最新のmainから新しく実行してください。'
             exit 1
           fi
       - name: PRのメンバー定義だけを取得・検証
@@ -138,7 +138,7 @@ jobs:
           app-id: ${{ vars.GH_APP_ID }}
           private-key: ${{ secrets.GH_APP_PRIVATE_KEY }}
           owner: Lumos-Programming
-          permission-members: write
+          permission-members: ${{ inputs.apply && 'write' || 'read' }}
       - name: tfcmtでplanの差分を投稿
         env:
           GITHUB_TOKEN: ${{ steps.github-app.outputs.token }}

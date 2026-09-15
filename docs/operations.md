@@ -44,7 +44,7 @@ DiscordはサーバーID・ユーザーID・ロールIDの組で管理します�
 
 ## 再実行と手動変更の修復
 
-`main`へのマージは検証だけを実行します。`Apply`は管理者が手動起動し、初期状態ではplanのみです。権限を反映するには、最新の`main`で`apply`をオンにして起動し、別の管理者が`production` Environmentで承認します。
+`main`へのマージは検証だけを実行します。`Apply`は管理者が手動起動し、初期状態では承認なしでplanだけを実行します。権限を反映するには、最新の`main`で`apply`をオンにして起動し、管理者が`production` Environmentで承認します。
 
 承認待ちの間に`main`が更新されると実行は停止します。古い実行を再実行せず、最新の`main`から新しい実行を作成してください。手動で外された管理対象の権限も、次の適用で設定に合わせて戻します。定期実行は設定していません。
 
@@ -59,18 +59,18 @@ GitHubとDiscordの処理は一つのトランザクションではありませ�
 1. PRが最新のmainを取り込み、変更が`members/*.yaml`だけであることを確認する（`.gitkeep`の追加・削除も可能）。
 2. `gh pr view <PR番号> --json headRefOid --jq .headRefOid`で完全なhead SHAを取得する。
 3. Actions → Apply → Run workflowでブランチに`main`を選び、`pr_number`と`pr_sha`に対象を入力する。`apply`はオフにする。
-4. 別の管理者が実行入力のPR番号・SHAを確認し、`production`で承認する。
+4. 承認なしで`plan` Environmentから実行が始まる。
 5. PRのtfcmtコメントで、対象SHAと権限の追加・変更・削除を確認する。PRに追加コミットがあれば、最新SHAで再実行する。
 
 PRからは指定SHAのメンバー定義だけを一時ディレクトリへ取得します。Terraform、プロバイダー、ロール一覧、スクリプト、依存関係はmainのものを使用します。通常ファイル以外やメンバー定義以外の変更は拒否します。取得時にSHAが変わっていた場合も停止します。PRモードではapplyを実行できません。
 
-このモードも本番stateとAPIを参照するため、GCS・App・Botの設定と`TERRAFORM_ENABLED=true`が必要です。未設定の状態で成功する`Validate`のモックテストは、本番planの代わりにはなりません。
+このモードも本番stateとAPIを参照するため、`plan` EnvironmentにGCS・App・Botを設定し、リポジトリ変数を`TERRAFORM_ENABLED=true`にする必要があります。plan用のGitHub AppトークンはMembersの読み取り権限だけを要求します。未設定の状態で成功する`Validate`のモックテストは、本番planの代わりにはなりません。
 
 ### マージ後の適用
 
 差分を確認してから適用を判断する場合は、次の順で実行してください。
 
-1. `pr_number`・`pr_sha`を空にし、`apply`をオフにしてApplyを起動し、Environmentの承認後にmainのplanだけを実行する。
+1. `pr_number`・`pr_sha`を空にし、`apply`をオフにしてApplyを起動する。承認なしでmainのplanだけを実行する。
 2. PRのtfcmtコメントで追加・変更・取り消しの差分を確認する。
 3. 適用する場合は同じコミットから`apply`をオンにして新しく起動し、Environmentで承認する。
 
@@ -124,5 +124,5 @@ GCSへのstate保存が失敗し、Terraformがローカル復旧ファイルを
 - GitHub Organization、App、レビュー担当チームの管理者を確認する。
 - Discord開発者チームとサーバーの管理者を確認する。
 - 各サービスに最低2名の管理者を維持する。
-- 必要に応じてApp秘密鍵・Botトークンを更新し、`production`のSecretsを更新する。
+- 必要に応じてApp秘密鍵・Botトークンを更新し、`plan`と`production`のSecretsを更新する。
 - 後任者によるplan確認後に、退任者の権限を取り消す。
