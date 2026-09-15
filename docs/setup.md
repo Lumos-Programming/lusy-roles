@@ -76,11 +76,12 @@ bash scripts/bootstrap-gcs.sh
 - 対象リポジトリと`Lumos-Programming`の変更されない数値ID。
 - `main`ブランチと`plan`または`production` Environment。
 - `.github/workflows/apply.yml`。
-- `workflow_dispatch`イベントのみ。
+- 手動実行の`workflow_dispatch`イベント。
+- `plan` Environmentに限り、PRの自動plan用の`pull_request_target`イベントも許可する。
 
 リポジトリ名やワークフローファイル名を変更するときは、信頼条件も変更してください。Poolはこの用途専用にします。同じPoolへのProvider追加は認証可能な主体を増やすことがあります。
 
-既にOIDCを構築済みでsubjectを`production`だけに限定している場合は、`repo:Lumos-Programming/lusy-roles:environment:plan`も許可します。リポジトリID・main・ワークフロー・イベントの制限は維持してください。
+既にOIDCを構築済みでsubjectを`production`だけに限定している場合は、`repo:Lumos-Programming/lusy-roles:environment:plan`も許可します。イベントを手動実行に限定している場合は、planのsubjectに限り`pull_request_target`も許可します。リポジトリID・main・ワークフローの制限は維持してください。
 
 Googleサービスアカウントの秘密鍵は作成しません。スクリプトが出力する以下の値を、`plan`と`production`両方のVariables、または共通のリポジトリVariablesに設定します。
 

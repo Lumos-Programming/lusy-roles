@@ -56,7 +56,7 @@ CONDITION="assertion.repository_owner_id == '$OWNER_ID' && assertion.repository_
 CONDITION="$CONDITION && assertion.ref == 'refs/heads/main'"
 CONDITION="$CONDITION && assertion.sub in ['repo:$GITHUB_REPOSITORY:environment:plan', 'repo:$GITHUB_REPOSITORY:environment:production']"
 CONDITION="$CONDITION && assertion.workflow_ref == '$GITHUB_REPOSITORY/.github/workflows/apply.yml@refs/heads/main'"
-CONDITION="$CONDITION && assertion.event_name == 'workflow_dispatch'"
+CONDITION="$CONDITION && (assertion.event_name == 'workflow_dispatch' || (assertion.event_name == 'pull_request_target' && assertion.sub == 'repo:$GITHUB_REPOSITORY:environment:plan'))"
 
 gcloud iam workload-identity-pools providers create-oidc "$PROVIDER_ID" \
   --project="$GCP_PROJECT_ID" --location=global --workload-identity-pool="$POOL_ID" \

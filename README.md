@@ -24,7 +24,7 @@ Lusyは、Lumosのシステムを管理するチームです。このリポジ�
 
 1. 申請者がDiscordサーバーに参加する。
 2. `members/<GitHubユーザー名>.yaml`を追加してPRを作る。
-3. GitHub Actionsが設定を検証する。
+3. GitHub Actionsが設定を検証する。Draftを解除すると、承認なしでplanを実行してPRに差分を表示する。
 4. 管理者が本人確認と権限のレビューを行い、PRのplanを確認してから承認・マージする。
 5. 管理者がApplyを手動起動し、production Environmentの承認後にTerraformのplan・applyを実行する。
 6. 申請者がGitHub Organizationの招待を承諾し、両サービスの権限を確認する。
@@ -82,7 +82,7 @@ GCSはTerraformのstateロックに対応しています。バージョニング
 
 PRの`Validate`では、認証情報を使わずに入力・YAMLの書式・Terraform構成・ロール変更のテストを検証します。
 
-**planは承認不要です。** マージ前のplanは、管理者が`Apply`を`main`から手動起動し、`pr_number`と`pr_sha`を指定して実行します。`apply`はオフにし、承認ルールのない`plan` Environmentを使います。PRから取得するのはメンバーYAMLだけで、Terraformやロール一覧はmainのものを使います。対象は最新のmainを取り込んだ、メンバーファイルだけを変更するPRです。詳しくは[運用ガイド](docs/operations.md#マージ前のprでplanを確認する)を参照してください。
+**planは承認不要です。** メンバーファイルを変更するPRの作成・再オープン・追加push・Ready for reviewへの変更時に自動実行します。Draftの間は実行しません。承認ルールのない`plan` Environmentを使い、PRから取得するのはメンバーYAMLだけです。Terraformやロール一覧はmainのものを使います。対象は最新のmainを取り込んだ、メンバーファイルだけを変更するPRです。手動再実行の方法は[運用ガイド](docs/operations.md#マージ前のprでplanを確認する)を参照してください。
 
 `Apply`は保存したplanを適用し、同時に一つだけ実行します。承認対象のコミットを固定し、承認待ちの間に`main`が更新された場合は停止します。最新の`main`から再度起動してください。GitHubとDiscordをまたぐ変更は一括で成功・失敗する処理ではなく、途中で失敗した場合は一部だけ反映されることがあります。
 

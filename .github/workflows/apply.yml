@@ -1,6 +1,12 @@
 name: Apply
+run-name: ${{ inputs.apply && 'Apply' || 'Plan' }} · ${{ github.event.pull_request.number || inputs.pr_number || 'main' }}
 
 on:
+  # PRのコードは実行せず、mainのコードでメンバーYAMLだけを読み込む。
+  pull_request_target:
+    branches: [main]
+    types: [opened, reopened, synchronize, ready_for_review]
+    paths: ['members/**']
   workflow_dispatch:
     inputs:
       apply:
@@ -28,7 +34,8 @@ concurrency:
 jobs:
   apply:
     name: ${{ inputs.apply && '承認後にapply' || 'plan（承認不要）' }}
-    if: github.ref == 'refs/heads/main' && vars.TERRAFORM_ENABLED == 'true'
+    if: >-
+      github.ref == 'refs/heads/main' && vars.TERRAFORM_ENABLED == 'true' && (github.event_name == 'workflow_dispatch' || !github.event.pull_request.draft)
     runs-on: ubuntu-latest
     timeout-minutes: 30
     environment: ${{ inputs.apply && 'production' || 'plan' }}
@@ -40,10 +47,12 @@ jobs:
       TF_IN_AUTOMATION: 'true'
       TF_INPUT: 'false'
       AQUA_GITHUB_TOKEN: ${{ github.token }}
+      PR_NUMBER: ${{ github.event.pull_request.number || inputs.pr_number }}
+      PR_SHA: ${{ github.event.pull_request.head.sha || inputs.pr_sha }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          # 手動起動した実行のコミットを固定する。
+          # 常にmainのコミットを固定する。PR headをcheckoutしない。
           ref: ${{ github.sha }}
           fetch-depth: 0
           persist-credentials: false
@@ -55,8 +64,6 @@ jobs:
           enable-cache: false
       - name: PRへの適用を禁止
         env:
-          PR_NUMBER: ${{ inputs.pr_number }}
-          PR_SHA: ${{ inputs.pr_sha }}
           APPLY_REQUESTED: ${{ inputs.apply }}
         run: |
           if [[ -n "$PR_NUMBER" && "$APPLY_REQUESTED" == "true" ]]; then
@@ -82,12 +89,10 @@ jobs:
             exit 1
           fi
       - name: PRのメンバー定義だけを取得・検証
-        if: inputs.pr_number != ''
+        if: env.PR_NUMBER != ''
         id: pr-input
         env:
           GH_TOKEN: ${{ github.token }}
-          PR_NUMBER: ${{ inputs.pr_number }}
-          PR_SHA: ${{ inputs.pr_sha }}
         run: uv run --locked python scripts/prepare_pr_plan.py --pr-number "$PR_NUMBER" --expected-sha "$PR_SHA"
       - name: 認証設定を確認
         env:
@@ -108,7 +113,6 @@ jobs:
         id: comment-target
         env:
           GH_TOKEN: ${{ github.token }}
-          PR_NUMBER: ${{ inputs.pr_number }}
         run: |
           pr_number="$PR_NUMBER"
           if [[ -z "$pr_number" ]]; then
@@ -159,7 +163,7 @@ jobs:
           tfcmt "${comment_options[@]}" plan --patch -- \
             terraform -chdir=terraform plan -no-color -input=false -lock-timeout=5m -out=roles.tfplan "${plan_options[@]}"
       - name: 保存したplanを適用しtfcmtで結果を投稿
-        if: inputs.apply && inputs.pr_number == ''
+        if: github.event_name == 'workflow_dispatch' && inputs.apply && env.PR_NUMBER == ''
         env:
           GITHUB_TOKEN: ${{ steps.github-app.outputs.token }}
           DISCORD_BOT_TOKEN: ${{ secrets.DISCORD_BOT_TOKEN }}
@@ -176,7 +180,6 @@ jobs:
       - name: 実行結果を記録
         env:
           APPLY_REQUESTED: ${{ inputs.apply }}
-          PR_NUMBER: ${{ inputs.pr_number }}
           PR_SHA: ${{ steps.pr-input.outputs.head_sha }}
         run: |
           {
