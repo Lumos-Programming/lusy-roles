@@ -175,11 +175,31 @@ class APIClientTests(unittest.TestCase):
     def test_permission_and_rate_limit_failures_are_never_treated_as_absence(self):
         api = API("https://api.github.com", {})
         for status in (401, 403, 429, 500):
-            with self.subTest(status=status), patch("prepare_membership_state.urlopen", side_effect=HTTPError(
+            with self.subTest(status=status), patch("prepare_membership_state.time.sleep"), patch("prepare_membership_state.urlopen", side_effect=HTTPError(
                     "https://api.github.com/path", status, "failure", {}, io.BytesIO(b"secret body"))):
                 with self.assertRaisesRegex(ValidationError, f"HTTP {status}") as caught:
                     api.get("/path", absent_ok=True)
                 self.assertNotIn("secret", str(caught.exception))
+
+    def test_transient_failures_retry_and_honor_retry_after(self):
+        api = API("https://discord.com/api/v10", {})
+        with patch("prepare_membership_state.urlopen", side_effect=[
+            HTTPError("", 500, "", {}, None),
+            HTTPError("", 429, "", {"Retry-After": "3"}, None),
+            io.BytesIO(b'{"roles": []}'),
+        ]) as request, patch("prepare_membership_state.time.sleep") as sleep:
+            self.assertEqual(api.get("/member"), {"roles": []})
+        self.assertEqual(request.call_count, 3)
+        self.assertEqual([call.args[0] for call in sleep.call_args_list], [2, 3])
+
+    def test_retries_are_bounded_and_forbidden_responses_are_not_retried(self):
+        api = API("https://discord.com/api/v10", {})
+        for status, attempts in ((500, 4), (403, 1)):
+            with self.subTest(status=status), patch("prepare_membership_state.urlopen", side_effect=HTTPError(
+                    "", status, "", {}, None)) as request, patch("prepare_membership_state.time.sleep"):
+                with self.assertRaises(ValidationError):
+                    api.get("/member")
+                self.assertEqual(request.call_count, attempts)
 
     def test_404_is_absence_only_when_explicitly_allowed(self):
         api = API("https://api.github.com", {})

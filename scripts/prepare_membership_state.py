@@ -8,6 +8,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import time
 from pathlib import Path
 from urllib.error import HTTPError
 from urllib.request import Request, urlopen
@@ -22,14 +23,26 @@ class API:
 
     def get(self, path, *, absent_ok=False):
         request = Request(self.origin + path, headers=self.headers)
-        try:
-            with urlopen(request, timeout=60) as response:
-                return json.load(response)
-        except HTTPError as error:
-            if absent_ok and error.code == 404:
-                return None
-            # レスポンス本文や認証ヘッダーをログへ出さない。権限不足は欠落と扱わない。
-            raise ValidationError(f"APIの読み取りに失敗: {path} (HTTP {error.code})") from None
+        for attempt in range(4):
+            try:
+                with urlopen(request, timeout=60) as response:
+                    return json.load(response)
+            except HTTPError as error:
+                if absent_ok and error.code == 404:
+                    return None
+                if (error.code == 429 or 500 <= error.code < 600) and attempt < 3:
+                    delay = 2 ** (attempt + 1)
+                    retry_after = error.headers.get("Retry-After")
+                    if retry_after:
+                        try:
+                            delay = float(retry_after)
+                        except ValueError:
+                            pass
+                    error.close()
+                    time.sleep(min(30, max(1, delay)))
+                    continue
+                # レスポンス本文や認証ヘッダーをログへ出さない。権限不足は欠落と扱わない。
+                raise ValidationError(f"APIの読み取りに失敗: {path} (HTTP {error.code})") from None
 
     def pages(self, path):
         page = 1
