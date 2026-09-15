@@ -1,0 +1,109 @@
+name: Apply
+
+on:
+  workflow_dispatch:
+    inputs:
+      apply:
+        description: 権限の適用を明示的に許可する（オフの場合はplanのみ）
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+# 適用途中のキャンセルによる部分反映を避ける。
+# GCSのstateロックでも、ローカル操作を含む同時更新を防ぐ。
+concurrency:
+  group: terraform-production
+  cancel-in-progress: false
+
+jobs:
+  apply:
+    name: 承認後にplan・apply
+    if: github.ref == 'refs/heads/main' && vars.TERRAFORM_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: production
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      TF_IN_AUTOMATION: 'true'
+      TF_INPUT: 'false'
+      AQUA_GITHUB_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # Environmentで承認した実行のコミットを固定する。
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: aquaproj/aqua-installer@96a9bc20066c5bf5e275b41019cfc165b25f4e2e # v4.0.5
+        with:
+          aqua_version: v2.63.0
+      - name: 設定を検証
+        run: |
+          uv run --no-project python scripts/validate.py
+          terraform fmt -check -recursive terraform
+      - name: 承認対象が現在のmainであることを確認
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REQUESTED_SHA: ${{ github.sha }}
+        run: |
+          latest_sha="$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq '.object.sha')"
+          if [[ "$REQUESTED_SHA" != "$latest_sha" ]]; then
+            echo '::error::承認待ちの間にmainが更新されました。最新のmainから新しく実行してください。'
+            exit 1
+          fi
+      - name: 認証設定を確認
+        env:
+          GCP_PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
+          GCP_WORKLOAD_IDENTITY_PROVIDER: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          GCP_SERVICE_ACCOUNT: ${{ vars.GCP_SERVICE_ACCOUNT }}
+          GITHUB_APP_ID: ${{ vars.GH_APP_ID }}
+          GITHUB_APP_PEM_FILE: ${{ secrets.GH_APP_PRIVATE_KEY }}
+          DISCORD_BOT_TOKEN: ${{ secrets.DISCORD_BOT_TOKEN }}
+        run: |
+          for setting in GCP_PROJECT_ID GCP_WORKLOAD_IDENTITY_PROVIDER GCP_SERVICE_ACCOUNT GITHUB_APP_ID GITHUB_APP_PEM_FILE DISCORD_BOT_TOKEN; do
+            if [[ -z "${!setting}" ]]; then
+              echo "::error::必要な設定がありません: $setting"
+              exit 1
+            fi
+          done
+      - name: OIDCでGoogle Cloudに認証
+        uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3
+        with:
+          project_id: ${{ vars.GCP_PROJECT_ID }}
+          workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ vars.GCP_SERVICE_ACCOUNT }}
+      - name: GCSのstateを初期化
+        run: terraform -chdir=terraform init -input=false -lockfile=readonly
+      - name: Terraform構成を検証
+        run: terraform -chdir=terraform validate
+      - name: Organization Appの短期トークンを発行
+        id: github-app
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          app-id: ${{ vars.GH_APP_ID }}
+          private-key: ${{ secrets.GH_APP_PRIVATE_KEY }}
+          owner: Lumos-Programming
+          permission-members: write
+      - name: 変更内容のplanを作成
+        env:
+          GITHUB_TOKEN: ${{ steps.github-app.outputs.token }}
+          DISCORD_BOT_TOKEN: ${{ secrets.DISCORD_BOT_TOKEN }}
+        run: terraform -chdir=terraform plan -input=false -lock-timeout=5m -out=roles.tfplan
+      - name: 保存したplanを適用
+        if: inputs.apply
+        env:
+          GITHUB_TOKEN: ${{ steps.github-app.outputs.token }}
+          DISCORD_BOT_TOKEN: ${{ secrets.DISCORD_BOT_TOKEN }}
+        run: terraform -chdir=terraform apply -input=false -lock-timeout=5m roles.tfplan
+      - name: 実行結果を記録
+        env:
+          APPLY_REQUESTED: ${{ inputs.apply }}
+        run: |
+          {
+            echo '## Lusyの権限反映結果'
+            echo "対象コミット: $(git rev-parse HEAD)"
+            echo "適用実行: $APPLY_REQUESTED"
+          } >> "$GITHUB_STEP_SUMMARY"

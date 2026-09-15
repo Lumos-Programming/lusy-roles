@@ -1,0 +1,9 @@
+# 通常はコピー不要。既定値と同じ設定を示す例。
+# Terraformを実行するterraform/ディレクトリからの相対パス。
+members_path = "../members"
+config_path  = "../config"
+
+# 個人の権限はmembers/<GitHubユーザー名>.jsonに記載する。
+# Organization・Discordサーバーはconfig/organization.jsonで指定する。
+# state保存先はbackend.tfで指定し、認証情報は環境変数で渡す。
+# このファイルにトークンや秘密鍵を書かないこと。

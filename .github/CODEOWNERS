@@ -1,0 +1,3 @@
+# このチームにリポジトリのwrite権限を付与する。
+# mainのルールセットでCode Ownerのレビューを必須にする。
+* @Lumos-Programming/lusy-admin

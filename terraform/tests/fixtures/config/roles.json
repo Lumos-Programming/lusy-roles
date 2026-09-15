@@ -1,0 +1,17 @@
+{
+  "member": {
+    "description": "Basic membership",
+    "github_teams": {"lusy": "member"},
+    "discord_role_ids": ["222222222222222222"]
+  },
+  "operator": {
+    "description": "Elevated team membership with an overlapping Discord role",
+    "github_teams": {"lusy": "maintainer", "infra": "member"},
+    "discord_role_ids": ["222222222222222222", "333333333333333333"]
+  },
+  "github-only": {
+    "description": "GitHub-only access",
+    "github_teams": {"docs": "member"},
+    "discord_role_ids": []
+  }
+}
