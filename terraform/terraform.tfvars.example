@@ -3,7 +3,7 @@
 members_path = "../members"
 config_path  = "../config"
 
-# 個人の権限はmembers/<GitHubユーザー名>.jsonに記載する。
-# Organization・Discordサーバーはconfig/organization.jsonで指定する。
+# 個人の権限はmembers/<GitHubユーザー名>.yamlに記載する。
+# Organization・Discordサーバーはconfig/organization.yamlで指定する。
 # state保存先はbackend.tfで指定し、認証情報は環境変数で渡す。
 # このファイルにトークンや秘密鍵を書かないこと。

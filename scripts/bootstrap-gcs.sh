@@ -24,7 +24,7 @@ fi
 command -v gcloud >/dev/null
 command -v gh >/dev/null
 command -v uv >/dev/null
-CLOUDSDK_PYTHON="$(uv run --no-project python -c 'import sys; print(sys.executable)')"
+CLOUDSDK_PYTHON="$(uv run --locked python -c 'import sys; print(sys.executable)')"
 export CLOUDSDK_PYTHON
 PROJECT_NUMBER="$(gcloud projects describe "$GCP_PROJECT_ID" --format='value(projectNumber)')"
 REPOSITORY_ID="$(gh api "repos/$GITHUB_REPOSITORY" --jq '.id')"

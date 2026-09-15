@@ -1,0 +1,5 @@
+github_username: bob
+github_org_role: admin
+discord_user_id: "555555555555555555"
+roles:
+  - member

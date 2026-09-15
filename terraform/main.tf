@@ -1,9 +1,9 @@
 locals {
-  organization = jsondecode(file("${var.config_path}/organization.json"))
-  roles        = jsondecode(file("${var.config_path}/roles.json"))
+  organization = yamldecode(file("${var.config_path}/organization.yaml"))
+  roles        = yamldecode(file("${var.config_path}/roles.yaml"))
   members = {
-    for filename in fileset(var.members_path, "*.json") :
-    trimsuffix(filename, ".json") => jsondecode(file("${var.members_path}/${filename}"))
+    for filename in fileset(var.members_path, "*.yaml") :
+    trimsuffix(filename, ".yaml") => yamldecode(file("${var.members_path}/${filename}"))
   }
 
   member_teams = {

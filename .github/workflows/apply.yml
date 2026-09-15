@@ -7,6 +7,14 @@ on:
         description: 権限の適用を明示的に許可する（オフの場合はplanのみ）
         type: boolean
         default: false
+      pr_number:
+        description: マージ前planのPR番号（空欄ならmain。メンバー定義だけのPRが対象）
+        type: string
+        default: ''
+      pr_sha:
+        description: PRを指定する場合は、そのheadの完全な40文字SHAを指定
+        type: string
+        default: ''
 
 permissions:
   contents: read
@@ -37,13 +45,31 @@ jobs:
         with:
           # Environmentで承認した実行のコミットを固定する。
           ref: ${{ github.sha }}
+          fetch-depth: 0
           persist-credentials: false
       - uses: aquaproj/aqua-installer@96a9bc20066c5bf5e275b41019cfc165b25f4e2e # v4.0.5
         with:
           aqua_version: v2.63.0
+      - uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
+        with:
+          enable-cache: false
+      - name: PRへの適用を禁止
+        env:
+          PR_NUMBER: ${{ inputs.pr_number }}
+          PR_SHA: ${{ inputs.pr_sha }}
+          APPLY_REQUESTED: ${{ inputs.apply }}
+        run: |
+          if [[ -n "$PR_NUMBER" && "$APPLY_REQUESTED" == "true" ]]; then
+            echo '::error::PRはplanのみ実行できます。applyをオフにしてください。'
+            exit 1
+          fi
+          if [[ -z "$PR_NUMBER" && -n "$PR_SHA" ]]; then
+            echo '::error::SHAを指定する場合はPR番号も必要です。'
+            exit 1
+          fi
       - name: 設定を検証
         run: |
-          uv run --no-project python scripts/validate.py
+          uv run --locked python scripts/validate.py
           terraform fmt -check -recursive terraform
       - name: 承認対象が現在のmainであることを確認
         env:
@@ -55,6 +81,14 @@ jobs:
             echo '::error::承認待ちの間にmainが更新されました。最新のmainから新しく実行してください。'
             exit 1
           fi
+      - name: PRのメンバー定義だけを取得・検証
+        if: inputs.pr_number != ''
+        id: pr-input
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ inputs.pr_number }}
+          PR_SHA: ${{ inputs.pr_sha }}
+        run: uv run --locked python scripts/prepare_pr_plan.py --pr-number "$PR_NUMBER" --expected-sha "$PR_SHA"
       - name: 認証設定を確認
         env:
           GCP_PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
@@ -74,9 +108,13 @@ jobs:
         id: comment-target
         env:
           GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ inputs.pr_number }}
         run: |
-          pr_number="$(gh api "repos/$GITHUB_REPOSITORY/commits/$GITHUB_SHA/pulls" \
-            --jq 'map(select(.merged_at != null and .base.ref == "main")) | .[0].number // 0')"
+          pr_number="$PR_NUMBER"
+          if [[ -z "$pr_number" ]]; then
+            pr_number="$(gh api "repos/$GITHUB_REPOSITORY/commits/$GITHUB_SHA/pulls" \
+              --jq 'map(select(.merged_at != null and .base.ref == "main")) | .[0].number // 0')"
+          fi
           echo "pr_number=$pr_number" >> "$GITHUB_OUTPUT"
           if [[ "$pr_number" == "0" ]]; then
             echo '対応するマージ済みPRがないため、差分は実行サマリーに表示します。'
@@ -107,16 +145,21 @@ jobs:
           DISCORD_BOT_TOKEN: ${{ secrets.DISCORD_BOT_TOKEN }}
           TFCMT_GITHUB_TOKEN: ${{ github.token }}
           TFCMT_PR_NUMBER: ${{ steps.comment-target.outputs.pr_number }}
-          TFCMT_SHA: ${{ github.sha }}
+          TFCMT_SHA: ${{ steps.pr-input.outputs.head_sha || github.sha }}
+          PR_MEMBERS_PATH: ${{ steps.pr-input.outputs.members_path }}
         run: |
           comment_options=()
+          plan_options=()
+          if [[ -n "$PR_MEMBERS_PATH" ]]; then
+            plan_options+=("-var=members_path=$PR_MEMBERS_PATH")
+          fi
           if [[ "$TFCMT_PR_NUMBER" == "0" ]]; then
             comment_options+=(--output "$GITHUB_STEP_SUMMARY")
           fi
           tfcmt "${comment_options[@]}" plan --patch -- \
-            terraform -chdir=terraform plan -no-color -input=false -lock-timeout=5m -out=roles.tfplan
+            terraform -chdir=terraform plan -no-color -input=false -lock-timeout=5m -out=roles.tfplan "${plan_options[@]}"
       - name: 保存したplanを適用しtfcmtで結果を投稿
-        if: inputs.apply
+        if: inputs.apply && inputs.pr_number == ''
         env:
           GITHUB_TOKEN: ${{ steps.github-app.outputs.token }}
           DISCORD_BOT_TOKEN: ${{ secrets.DISCORD_BOT_TOKEN }}
@@ -133,9 +176,12 @@ jobs:
       - name: 実行結果を記録
         env:
           APPLY_REQUESTED: ${{ inputs.apply }}
+          PR_NUMBER: ${{ inputs.pr_number }}
+          PR_SHA: ${{ steps.pr-input.outputs.head_sha }}
         run: |
           {
             echo '## Lusyの権限反映結果'
             echo "対象コミット: $(git rev-parse HEAD)"
+            echo "メンバー定義のPR: ${PR_NUMBER:-main} $PR_SHA"
             echo "適用実行: $APPLY_REQUESTED"
           } >> "$GITHUB_STEP_SUMMARY"

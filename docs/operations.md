@@ -4,20 +4,19 @@
 
 管理者は、申請者の本人確認、参加理由、ロールが付与する実際の権限を確認します。`github_org_role: admin`はOrganizationの所有者、GitHubチームの`maintainer`はチーム管理権限です。
 
-`config/roles.json`を変更すると、そのロールを持つ全メンバーに影響します。個人ファイル以外の変更は影響範囲も確認してください。
+`config/roles.yaml`を変更すると、そのロールを持つ全メンバーに影響します。個人ファイル以外の変更は影響範囲も確認してください。
 
 ## ロールの追加と重複
 
 ロール一覧の各項目は、次の形式です。
 
-```json
-{
-  "lusy": {
-    "description": "GitHubのLusyチームへの所属とDiscordのLumos Webロール",
-    "github_teams": {"lusy": "member"},
-    "discord_role_ids": ["1381977862831083590"]
-  }
-}
+```yaml
+lusy:
+  description: GitHubのLusyチームへの所属とDiscordのLumos Webロール
+  github_teams:
+    lusy: member
+  discord_role_ids:
+    - "1381977862831083590"
 ```
 
 `github_teams`には既存チームのslugと`member`または`maintainer`を指定します。片方のサービスだけを対象にする場合、もう片方は空のオブジェクトまたは配列にできます。
@@ -53,15 +52,29 @@ GitHubとDiscordの処理は一つのトランザクションではありませ�
 
 ## plan差分と適用結果の確認
 
-`tfcmt`が、実行対象コミットに対応するマージ済みPRへplanの差分とapplyの結果を投稿します。planは既存コメントを更新し、applyは結果を新しいコメントとして残します。対応するPRがない初期コミットなどでは、Actionsの実行サマリーに表示します。
+`tfcmt`が、指定したPRまたは実行対象コミットに対応するマージ済みPRへplanの差分とapplyの結果を投稿します。planは既存コメントを更新し、applyは結果を新しいコメントとして残します。対応するPRがない初期コミットなどでは、Actionsの実行サマリーに表示します。
+
+### マージ前のPRでplanを確認する
+
+1. PRが最新のmainを取り込み、変更が`members/*.yaml`だけであることを確認する（`.gitkeep`の追加・削除も可能）。
+2. `gh pr view <PR番号> --json headRefOid --jq .headRefOid`で完全なhead SHAを取得する。
+3. Actions → Apply → Run workflowでブランチに`main`を選び、`pr_number`と`pr_sha`に対象を入力する。`apply`はオフにする。
+4. 別の管理者が実行入力のPR番号・SHAを確認し、`production`で承認する。
+5. PRのtfcmtコメントで、対象SHAと権限の追加・変更・削除を確認する。PRに追加コミットがあれば、最新SHAで再実行する。
+
+PRからは指定SHAのメンバー定義だけを一時ディレクトリへ取得します。Terraform、プロバイダー、ロール一覧、スクリプト、依存関係はmainのものを使用します。通常ファイル以外やメンバー定義以外の変更は拒否します。取得時にSHAが変わっていた場合も停止します。PRモードではapplyを実行できません。
+
+このモードも本番stateとAPIを参照するため、GCS・App・Botの設定と`TERRAFORM_ENABLED=true`が必要です。未設定の状態で成功する`Validate`のモックテストは、本番planの代わりにはなりません。
+
+### マージ後の適用
 
 差分を確認してから適用を判断する場合は、次の順で実行してください。
 
-1. `apply`をオフにしてApplyを起動し、Environmentの承認後にplanだけを実行する。
+1. `pr_number`・`pr_sha`を空にし、`apply`をオフにしてApplyを起動し、Environmentの承認後にmainのplanだけを実行する。
 2. PRのtfcmtコメントで追加・変更・取り消しの差分を確認する。
 3. 適用する場合は同じコミットから`apply`をオンにして新しく起動し、Environmentで承認する。
 
-2回目の実行でもplanを作り直します。外部で権限が変更されると差分が変わる場合があるため、tfcmtコメントの対象コミットと実行リンクを確認してください。これはマージ前のPR検証で本番planを実行する仕組みではありません。
+2回目の実行でもplanを作り直します。外部で権限が変更されると差分が変わる場合があるため、tfcmtコメントの対象コミットと実行リンクを確認してください。
 
 コメントは公開PRに表示されます。現在のメンバー定義と同様に、対象のユーザーIDやロール割り当てを含みます。機密値を追加する場合は、Terraformのsensitive指定とコメント内容も確認してください。
 
@@ -86,7 +99,7 @@ GitHubとDiscordの処理は一つのトランザクションではありませ�
 既存の所属を取り込む場合、メンバー定義を追加したうえで、最初の適用前に管理者がimportします。Googleのローカル認証には管理者グループに所属するアカウントを使います。
 
 ```sh
-uv run --no-project python scripts/validate.py
+uv run --locked python scripts/validate.py
 gcloud auth application-default login
 terraform -chdir=terraform init -input=false -lockfile=readonly
 # 組織Appの短期トークンをGITHUB_TOKEN、BotトークンをDISCORD_BOT_TOKENに設定する。

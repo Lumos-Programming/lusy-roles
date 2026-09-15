@@ -132,7 +132,7 @@ Discord Developer Portalで複数人の開発者チームを用意し、その�
 1. Actionsの`Apply`を開く。
 2. `main`を選択し、`apply`をオフのまま手動実行する。
 3. `production`の承認後、GCS接続とplanを確認する。
-4. 最初の実メンバーのPRをレビュー・マージする。
+4. 最初の実メンバーのPRを作成し、[マージ前plan](operations.md#マージ前のprでplanを確認する)で差分を確認する。既存メンバーは[取り込み手順](operations.md#既存メンバーの取り込み)も確認してからレビュー・マージする。
 5. 最新の`main`でApplyを起動し、`apply`をオンにする。
 6. 管理者が`production`のReview deploymentsで対象コミットを確認し、承認する。
 7. 招待・チーム所属・Discordロールが実際に付くことを確認する。

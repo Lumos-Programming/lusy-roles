@@ -1,0 +1,9 @@
+[project]
+name = "lusy-roles-tools"
+version = "0.1.0"
+description = "Lusyのメンバー定義を検証するツール"
+requires-python = ">=3.13,<3.14"
+dependencies = ["PyYAML==6.0.3"]
+
+[tool.uv]
+required-version = "==0.12.15"

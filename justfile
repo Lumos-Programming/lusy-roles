@@ -1,6 +1,6 @@
 set shell := ["bash", "-eu", "-o", "pipefail", "-c"]
 
-python := "aqua exec -- uv run --no-project python"
+python := "uv run --locked python"
 terraform := "aqua exec -- terraform"
 
 # 利用可能なコマンドを表示する。
@@ -19,11 +19,13 @@ test: validate lint
     {{python}} -m unittest discover -s tests -v
     {{terraform}} -chdir=terraform test
 
-# GitHub Actionsと初期構築スクリプトを検証する。
+# YAMLの書式・GitHub Actions・初期構築スクリプトを検証する。
 lint:
+    aqua exec -- yamlfmt -conf .yamlfmt.yaml -lint .
     aqua exec -- actionlint .github/workflows/*.yml
     aqua exec -- shellcheck scripts/bootstrap-gcs.sh
 
-# Terraformファイルの書式を整える。
+# TerraformとYAMLの書式を整える。
 fmt:
     {{terraform}} fmt -recursive terraform
+    aqua exec -- yamlfmt -conf .yamlfmt.yaml .

@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
-"""Validate the access catalog and one JSON file per person without credentials."""
+"""認証情報を使わず、ロール一覧と一人一ファイルのYAML定義を検証する。"""
 
 import argparse
-import json
 import re
 import sys
 from pathlib import Path
+
+import yaml
 
 
 class ValidationError(ValueError):
@@ -17,24 +18,38 @@ def require(condition, message):
         raise ValidationError(message)
 
 
-def unique_object(pairs):
-    result = {}
-    for key, value in pairs:
-        require(key not in result, f"duplicate JSON key: {key!r}")
-        result[key] = value
-    return result
+class ConfigLoader(yaml.SafeLoader):
+    def construct_mapping(self, node, deep=False):
+        require(isinstance(node, yaml.MappingNode), "expected a YAML mapping")
+        result = {}
+        for key_node, value_node in node.value:
+            key = self.construct_object(key_node, deep=deep)
+            require(isinstance(key, str), "YAML mapping keys must be strings")
+            require(key not in result, f"duplicate YAML key: {key!r}")
+            result[key] = self.construct_object(value_node, deep=deep)
+        return result
 
 
-def read_json(path):
+# YAML 1.2のTerraformと合わせ、yes/no/on/offを文字列として扱う。
+ConfigLoader.yaml_implicit_resolvers = {
+    key: [(tag, pattern) for tag, pattern in resolvers if tag != "tag:yaml.org,2002:bool"]
+    for key, resolvers in yaml.SafeLoader.yaml_implicit_resolvers.items()
+}
+ConfigLoader.add_implicit_resolver(
+    "tag:yaml.org,2002:bool", re.compile(r"^(?:true|True|TRUE|false|False|FALSE)$"), list("tTfF")
+)
+
+
+def read_yaml(path):
     require(not path.is_symlink(), f"{path}: symlinks are not supported")
     try:
-        return json.loads(path.read_text(), object_pairs_hook=unique_object)
-    except (OSError, ValueError) as error:
+        return yaml.load(path.read_text(encoding="utf-8"), Loader=ConfigLoader)
+    except (OSError, ValueError, yaml.YAMLError) as error:
         raise ValidationError(f"{path}: {error}") from error
 
 
 def fields(value, expected, label):
-    require(isinstance(value, dict), f"{label}: expected a JSON object")
+    require(isinstance(value, dict), f"{label}: expected a YAML mapping")
     require(set(value) == set(expected), f"{label}: expected exactly these fields: {', '.join(expected)}")
 
 
@@ -60,14 +75,14 @@ def validate(root):
     require(config_dir.is_dir() and not config_dir.is_symlink(), "config/ must be a real directory")
     require(members_dir.is_dir() and not members_dir.is_symlink(), "members/ must be a real directory")
 
-    organization = read_json(config_dir / "organization.json")
+    organization = read_yaml(config_dir / "organization.yaml")
     fields(organization, ("github_organization", "discord_server_id"), "organization")
     github_pattern = r"[A-Za-z0-9](?:[A-Za-z0-9-]{0,37}[A-Za-z0-9])?"
     identifier(organization["github_organization"], github_pattern, "GitHub organization")
     snowflake(organization["discord_server_id"], "Discord server ID")
 
-    roles = read_json(config_dir / "roles.json")
-    require(isinstance(roles, dict) and roles, "roles.json: expected a nonempty object")
+    roles = read_yaml(config_dir / "roles.yaml")
+    require(isinstance(roles, dict) and roles, "roles.yaml: expected a nonempty mapping")
     for name, role in roles.items():
         identifier(name, r"[a-z0-9]+(?:-[a-z0-9]+)*", "Role name")
         fields(role, ("description", "github_teams", "discord_role_ids"), f"Role {name}")
@@ -90,8 +105,8 @@ def validate(root):
         require(not path.is_symlink(), f"{path}: symlinks are not supported")
         if path.name in (".gitkeep", "README.md") and path.is_file():
             continue
-        require(path.is_file() and path.suffix == ".json", f"{path}: expected a flat members/<username>.json file")
-        member = read_json(path)
+        require(path.is_file() and path.suffix == ".yaml", f"{path}: expected a flat members/<username>.yaml file")
+        member = read_yaml(path)
         fields(member, ("github_username", "github_org_role", "discord_user_id", "roles"), path.name)
         username = member["github_username"]
         identifier(username, github_pattern, f"{path.name}: GitHub username")
