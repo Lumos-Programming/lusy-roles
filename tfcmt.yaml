@@ -1,15 +1,14 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/suzuki-shunsuke/tfcmt/v4.14.19/json-schema/tfcmt.json
 templates:
-  plan_title: '## {{if eq .ExitCode 1}}❌ {{end}}Terraform plan（Lusy本番）'
-  apply_title: '## {{if eq .ExitCode 0}}✅{{else}}❌{{end}} Terraform apply（Lusy本番）'
+  plan_title: '## {{if eq .ExitCode 1}}❌ {{end}}Terraform plan'
+  apply_title: '## {{if eq .ExitCode 0}}✅{{else}}❌{{end}} Terraform apply'
   deletion_warning: |
     {{if .HasDestroy}}
-    ### ⚠️ 権限の取り消しを含みます
-    Organizationからの脱退やロールの削除が意図した内容か確認してください。
+    ⚠️ 権限の削除を含みます。
     {{end}}
   changed_result: |
     {{if .ChangedResult}}
-    <details><summary>変更差分</summary>
+    <details><summary>差分</summary>
 
     {{wrapCode .ChangedResult}}
     </details>

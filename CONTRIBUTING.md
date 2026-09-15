@@ -35,7 +35,7 @@ just lint      # YAMLの書式・GitHub Actions・シェルスクリプトを検
 just test      # 入力検証・Terraform検証・モックテスト・ワークフロー検証
 ```
 
-`just test`は本番stateに接続せず、GitHubやDiscordの権限を変更しません。実際のAPI動作は管理者が`Apply`で確認します。
+`just test`は本番stateに接続せず、GitHubやDiscordの権限を変更しません。Discordプロバイダーのimportとplanは、ローカルHTTPサーバーを使って検証します。実環境での動作はActionsのplanで確認します。
 
 YAMLの書式はyamlfmtで統一し、設定は`.yamlfmt.yaml`に置きます。CIでは`yamlfmt -lint`で未整形のファイルを検出します。メンバー定義・共通設定の拡張子は`.yaml`に統一し、Discord IDは引用符で囲んだ文字列にしてください。
 

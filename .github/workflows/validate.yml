@@ -28,5 +28,5 @@ jobs:
         with:
           aqua_version: v2.63.0
       - uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
-      - name: 入力・Terraform・ワークフローを検証
+      - name: 検証
         run: just test

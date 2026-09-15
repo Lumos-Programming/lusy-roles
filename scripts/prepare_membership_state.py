@@ -69,7 +69,7 @@ def targets(organization, members, state):
             if kind == "github_membership":
                 require(attributes["id"].split(":")[0].lower() == org.lower(),
                         "Organization変更には管理者によるstateの移行が必要です。")
-        elif kind == "discord_role_member":
+        elif kind == "discord_member_role":
             discord_users.add((attributes["guild_id"], attributes["user_id"]))
     for username in usernames:
         identifier(username, r"[a-z0-9][a-z0-9-]{0,38}", "管理対象GitHubユーザー名")
@@ -138,7 +138,7 @@ def discover(organization, members, state, github, discord):
             require(type(role.get("managed")) is bool, "Discordロールの管理元を判別できません。")
             if role_id == guild or role["managed"]:
                 continue
-            add("discord_role_member", f"{guild}/{user}/{role_id}", f"{guild}:{role_id}:{user}",
+            add("discord_member_role", f"{guild}/{user}/{role_id}", f"{guild}:{user}:{role_id}",
                 guild_id=guild, user_id=user, role_id=role_id)
     return grants
 
@@ -228,7 +228,7 @@ def main():
     }), encoding="utf-8")
     with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
         output.write(f"terraform_dir={destination}\n")
-    mode = "本番state（承認後）" if args.adopt_remote else "一時ローカルstate（本番stateは変更なし）"
+    mode = "GCS" if args.adopt_remote else "ローカル"
     print(f"既存の割り当て{len(grants)}件を確認しました。取り込み先: {mode}")
 
 

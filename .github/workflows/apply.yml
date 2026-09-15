@@ -10,15 +10,15 @@ on:
   workflow_dispatch:
     inputs:
       apply:
-        description: 権限の適用を明示的に許可する（オフの場合はplanのみ）
+        description: 権限の変更を適用する
         type: boolean
         default: false
       pr_number:
-        description: マージ前planのPR番号（空欄ならmain。メンバー定義だけのPRが対象）
+        description: Planの対象PR番号（省略時はmain）
         type: string
         default: ''
       pr_sha:
-        description: PRを指定する場合は、そのheadの完全な40文字SHAを指定
+        description: PRのhead SHA（40文字）
         type: string
         default: ''
 
@@ -33,7 +33,7 @@ concurrency:
 
 jobs:
   apply:
-    name: ${{ inputs.apply && '承認後にapply' || 'plan（承認不要）' }}
+    name: ${{ inputs.apply && 'Apply' || 'Plan' }}
     if: >-
       github.ref == 'refs/heads/main' && vars.TERRAFORM_ENABLED == 'true' && (github.event_name == 'workflow_dispatch' || !github.event.pull_request.draft)
     runs-on: ubuntu-latest
@@ -62,7 +62,7 @@ jobs:
       - uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
         with:
           enable-cache: false
-      - name: PRへの適用を禁止
+      - name: 実行設定を確認
         env:
           APPLY_REQUESTED: ${{ inputs.apply }}
         run: |
@@ -78,7 +78,7 @@ jobs:
         run: |
           uv run --locked python scripts/validate.py
           terraform fmt -check -recursive terraform
-      - name: 実行対象が現在のmainであることを確認
+      - name: mainの更新を確認
         env:
           GH_TOKEN: ${{ github.token }}
           REQUESTED_SHA: ${{ github.sha }}
@@ -88,7 +88,7 @@ jobs:
             echo '::error::起動後にmainが更新されました。最新のmainから新しく実行してください。'
             exit 1
           fi
-      - name: PRのメンバー定義だけを取得・検証
+      - name: PRのメンバー定義を読み込む
         if: env.PR_NUMBER != ''
         id: pr-input
         env:
@@ -109,7 +109,7 @@ jobs:
               exit 1
             fi
           done
-      - name: 差分の投稿先PRを確認
+      - name: 投稿先PRを確認
         id: comment-target
         env:
           GH_TOKEN: ${{ github.token }}
@@ -125,17 +125,17 @@ jobs:
           else
             echo "差分の投稿先: PR #$pr_number"
           fi
-      - name: OIDCでGoogle Cloudに認証
+      - name: Google Cloudに認証
         uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3
         with:
           project_id: ${{ vars.GCP_PROJECT_ID }}
           workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
           service_account: ${{ vars.GCP_SERVICE_ACCOUNT }}
-      - name: GCSのstateを初期化
+      - name: Terraformを初期化
         run: terraform -chdir=terraform init -input=false -lockfile=readonly
-      - name: Terraform構成を検証
+      - name: Terraformを検証
         run: terraform -chdir=terraform validate
-      - name: Organization Appの短期トークンを発行
+      - name: GitHubに認証
         id: github-app
         uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
         with:
@@ -143,7 +143,7 @@ jobs:
           private-key: ${{ secrets.GH_APP_PRIVATE_KEY }}
           owner: Lumos-Programming
           permission-members: ${{ inputs.apply && 'write' || 'read' }}
-      - name: 既存の割り当てを検出してstateに取り込む
+      - name: 既存の割り当てを読み込む
         id: memberships
         env:
           GITHUB_TOKEN: ${{ steps.github-app.outputs.token }}
@@ -157,7 +157,7 @@ jobs:
             options+=(--adopt-remote)
           fi
           uv run --locked python scripts/prepare_membership_state.py "${options[@]}"
-      - name: tfcmtでplanの差分を投稿
+      - name: Plan
         env:
           GITHUB_TOKEN: ${{ steps.github-app.outputs.token }}
           DISCORD_BOT_TOKEN: ${{ secrets.DISCORD_BOT_TOKEN }}
@@ -172,7 +172,7 @@ jobs:
           fi
           tfcmt "${comment_options[@]}" plan --patch -- \
             terraform -chdir="$TERRAFORM_DIR" plan -no-color -input=false -lock-timeout=5m -out=roles.tfplan
-      - name: 保存したplanを適用しtfcmtで結果を投稿
+      - name: Apply
         if: github.event_name == 'workflow_dispatch' && inputs.apply && env.PR_NUMBER == ''
         env:
           GITHUB_TOKEN: ${{ steps.github-app.outputs.token }}
@@ -188,14 +188,18 @@ jobs:
           fi
           tfcmt "${comment_options[@]}" apply -- \
             terraform -chdir="$TERRAFORM_DIR" apply -no-color -input=false -lock-timeout=5m roles.tfplan
-      - name: 実行結果を記録
+      - name: 結果を記録
         env:
           APPLY_REQUESTED: ${{ inputs.apply }}
           PR_SHA: ${{ steps.pr-input.outputs.head_sha }}
         run: |
           {
-            echo '## Lusyの権限反映結果'
+            echo '## 実行結果'
             echo "対象コミット: $(git rev-parse HEAD)"
-            echo "メンバー定義のPR: ${PR_NUMBER:-main} $PR_SHA"
-            echo "適用実行: $APPLY_REQUESTED"
+            echo "対象PR: ${PR_NUMBER:-なし} $PR_SHA"
+            if [[ "$APPLY_REQUESTED" == "true" ]]; then
+              echo '操作: Apply'
+            else
+              echo '操作: Plan'
+            fi
           } >> "$GITHUB_STEP_SUMMARY"

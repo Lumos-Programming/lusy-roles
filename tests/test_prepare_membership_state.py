@@ -74,12 +74,14 @@ class DiscoveryTests(unittest.TestCase):
             address("github_membership", "alice"),
             address("github_team_membership", "alice/lusy-lumos-web"),
             address("github_team_membership", "alice/old"),
-            address("discord_role_member", f"{GUILD}/{USER}/{WANTED}"),
-            address("discord_role_member", f"{GUILD}/{USER}/{EXTRA}"),
+            address("discord_member_role", f"{GUILD}/{USER}/{WANTED}"),
+            address("discord_member_role", f"{GUILD}/{USER}/{EXTRA}"),
         })
         self.assertEqual(grants[address("github_team_membership", "alice/old")]["id"], "3:alice")
         self.assertEqual(grants[address("github_team_membership", "alice/old")]["attributes"]["role"], "maintainer")
         self.assertEqual(grants[address("github_membership", "alice")]["attributes"]["role"], "admin")
+        self.assertEqual(grants[address("discord_member_role", f"{GUILD}/{USER}/{EXTRA}")]["id"],
+                         f"{GUILD}:{USER}:{EXTRA}")
 
     def test_missing_inheritance_metadata_fails_instead_of_guessing(self):
         del self.github.responses["/orgs/example-org/teams/lusy/members"][0]["inherited"]
@@ -94,7 +96,7 @@ class DiscoveryTests(unittest.TestCase):
 
     def test_legacy_state_and_discord_account_changes_include_both_accounts(self):
         old_user = "666666666666666666"
-        state = {"resources": [{"mode": "managed", "type": "discord_role_member", "name": "members",
+        state = {"resources": [{"mode": "managed", "type": "discord_member_role", "name": "members",
                                 "instances": [{"attributes": {"guild_id": GUILD, "user_id": old_user}}]}]}
         usernames, users = targets(ORGANIZATION, MEMBERS, state)
         self.assertEqual(usernames, {"alice"})

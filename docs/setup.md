@@ -18,7 +18,7 @@
 
 `Validate`は一度実行すると必須チェックとして選択できます。**CODEOWNERSを置くだけでは承認は強制されません。** 利用中のGitHubプランとリポジトリの公開範囲で、必要なルールが使えることも確認してください。
 
-GitHub ActionsのEnvironmentに`production`を作成し、デプロイ可能なブランチを`main`に限定します。**Required reviewersに管理者チームを設定し、可能ならPrevent self-reviewを有効にしてください。** マージ後も明示的なデプロイ承認を必須にします。管理者の承認迂回も無効にしてください。
+GitHub ActionsのEnvironmentに`production`を作成し、デプロイ可能なブランチを`main`に限定します。Required reviewersに管理者チームを設定し、可能ならPrevent self-reviewを有効にしてください。管理者の承認迂回も無効にします。
 
 plan用に`plan` Environmentも作成し、こちらもブランチを`main`に限定します。**`plan`にはRequired reviewersや待機時間を設定しません。** `apply`をオフにした実行は`plan`を使用し、オンにした実行だけが`production`で承認を待ちます。
 
@@ -128,7 +128,7 @@ Discord Developer Portalで複数人の開発者チームを用意し、その�
 
 `Bot `という接頭辞は付けずに保存します。BotにはAdministrator権限は不要です。追加で管理するロールもBotより下に置き、`@everyone`や外部連携が管理するロールは対象に含めません。
 
-メンバーは適用前にサーバーへ参加する必要があります。使用するプロバイダーは初期化時にDiscord Gatewayにも接続します。接続エラーが出る場合は、トークン・ネットワーク・Botの設定を確認してください。
+メンバーは適用前にサーバーへ参加する必要があります。ロールの管理にはDiscord REST APIを使います。
 
 ## 5. 初回実行
 
@@ -136,7 +136,7 @@ Discord Developer Portalで複数人の開発者チームを用意し、その�
 
 1. Actionsの`Apply`を開く。
 2. `main`を選択し、`apply`をオフのまま手動実行する。
-3. 承認なしで実行されるplanで、GCS接続と差分を確認する。
+3. planでGCS接続と差分を確認する。
 4. 最初の実メンバーのPRを作成し、[マージ前plan](operations.md#マージ前のprでplanを確認する)で差分を確認する。既存メンバーは[取り込み手順](operations.md#既存メンバーの取り込み)も確認してからレビュー・マージする。
 5. 最新の`main`でApplyを起動し、`apply`をオンにする。
 6. 管理者が`production`のReview deploymentsで対象コミットを確認し、承認する。

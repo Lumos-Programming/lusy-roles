@@ -7,8 +7,8 @@ terraform {
       version = "6.13.0"
     }
     discord = {
-      source  = "Planetaryauto60/discord"
-      version = "1.0.3"
+      source  = "Alpaca744/discord"
+      version = "0.1.3"
     }
   }
 }

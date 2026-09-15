@@ -32,7 +32,7 @@ locals {
     ]))
   }
 
-  discord_role_memberships = merge({}, [
+  discord_member_roleships = merge({}, [
     for key, member in local.members : {
       for role_id in local.discord_member_roles[key] :
       "${local.organization.discord_server_id}/${member.discord_user_id}/${role_id}" => {
@@ -68,8 +68,8 @@ resource "github_team_membership" "members" {
 
 # 既存の割り当てはprepare_membership_state.pyがplan前に取り込む。
 # 全IDをキーに含め、ID変更時は旧権限の削除と新権限の作成を行う。
-resource "discord_role_member" "members" {
-  for_each = local.discord_role_memberships
+resource "discord_member_role" "members" {
+  for_each = local.discord_member_roleships
 
   guild_id = local.organization.discord_server_id
   user_id  = each.value.user_id
