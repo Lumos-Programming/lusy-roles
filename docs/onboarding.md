@@ -26,6 +26,7 @@ github_org_role: member
 discord_user_id: "123456789012345678"
 roles:
   - lusy
+  - lumos-web
 ```
 
 例のアカウント情報は、自分のものに置き換えてください。
@@ -35,9 +36,13 @@ roles:
 | `github_username` | 小文字のGitHubユーザー名。ファイル名と一致させる |
 | `github_org_role` | 通常は`member`。`admin`はOrganization全体の所有者権限なので、管理者の指示がある場合だけ指定する |
 | `discord_user_id` | コピーした自分のDiscordユーザーID |
-| `roles` | 希望するロールの配列。Lusyへの参加は`["lusy"]` |
+| `roles` | 共通の`lusy`と担当プロジェクトのロール。Web開発の場合は`["lusy", "lumos-web"]` |
 
-`lusy`は、GitHubの`Lusy`配下にある`[Lusy] Lumos Web`チーム（slug: `lusy-lumos-web`）への所属と、Discordの`Lumos Web`ロールを付与します。利用できるロールは[ロール一覧](../config/roles.yaml)で確認できます。
+- `lusy`：GitHubの`Lusy`チームへの所属。
+- `lumos-web`：GitHubの`[Lusy] Lumos Web`チームへの所属とDiscordの`Lumos Web`ロール。
+- `lumos-discord-bot`：Discordの`Discord Bot`ロール。
+
+複数のプロジェクトを担当する場合は、それぞれのロールを追加します。付与先のIDやチーム名は[ロール一覧](../config/roles.yaml)で確認できます。
 
 登録後は、この定義にない既存のGitHubチームへの直接所属とDiscordロールも取り消し対象です。Lusy以外で必要な権限がある場合も、管理者と相談してロール一覧に含めてください。Discordの`@everyone`と連携サービス管理ロール、GitHubの子チーム経由の継承所属は対象外です。
 
@@ -72,8 +77,8 @@ ReadyなPRでは[plan](operations.md#マージ前のprでplanを確認する)が
 マージ後、管理者がApplyを手動起動し、Environmentで承認します。`Apply`が成功したら、次を確認してください。
 
 - GitHub Organizationへの招待が届いた場合は承諾する。
-- `Lumos-Programming`の`[Lusy] Lumos Web`チームに所属できている。
-- Discordで`Lumos Web`ロールが付いている。
+- 申請したGitHubチームに所属できている。
+- 申請したDiscordロールが付いている。
 - 担当者から案内されたリポジトリやチャンネルを利用できる。
 
 GitHubの招待は本人が承諾するまで有効になりません。チーム所属も招待承諾後に有効になります。

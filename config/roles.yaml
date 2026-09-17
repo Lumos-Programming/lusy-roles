@@ -1,6 +1,18 @@
 lusy:
-  description: GitHubの[Lusy] Lumos Webチームへの所属とDiscordのLumos Webロール
+  description: Lusyへの所属
+  github_teams:
+    lusy: member
+  discord_role_ids: []
+
+lumos-web:
+  description: Lumos Webの開発
   github_teams:
     lusy-lumos-web: member
   discord_role_ids:
     - "1381977862831083590"
+
+lumos-discord-bot:
+  description: Lumos Discord Botの開発
+  github_teams: {}
+  discord_role_ids:
+    - "1383147563850535004"

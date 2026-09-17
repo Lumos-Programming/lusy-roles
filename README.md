@@ -37,16 +37,21 @@ Lusyは、Lumosのシステムを管理するチームです。このリポジ�
 | --- | --- |
 | GitHub Organization | `Lumos-Programming` |
 | DiscordサーバーID | `1368752707321729158` |
-| 申請できるロール | `lusy` |
-| `lusy`が付与するGitHubチーム | `Lusy`配下の`[Lusy] Lumos Web`（slug: `lusy-lumos-web`）/ `member` |
-| `lusy`が付与するDiscordロール | Lumos Web / `1381977862831083590` |
 | state保存先 | `gs://lusy-roles-state/lusy-roles/production/default.tfstate` |
+
+共通の`lusy`に、担当プロジェクトのロールを追加します。
+
+| ロール | GitHubチーム | Discordロール |
+| --- | --- | --- |
+| `lusy` | `Lusy`（`lusy`）/ `member` | — |
+| `lumos-web` | `[Lusy] Lumos Web`（`lusy-lumos-web`）/ `member` | Lumos Web / `1381977862831083590` |
+| `lumos-discord-bot` | — | Discord Bot / `1383147563850535004` |
 
 GitHubチームとDiscordロールは既存のものを使います。このリポジトリが管理するのは、Organizationへの所属と、チーム・ロールへの割り当てです。チームやロール自体の作成、GitHubリポジトリへの権限、Discordロールの権限内容は別途設定します。
 
 メンバー定義に合わせて、その人の既存の所属・ロールも整理します。GitHubチームへの直接所属とDiscordロールを検出し、YAMLにない割り当ては削除対象になります。未登録の人、GitHubの継承所属、Discordの`@everyone`と連携サービス管理ロールは対象外です。
 
-`lusy-lumos-web`のメンバーは親チーム`Lusy`のアクセス権限も継承します。親チームへの直接所属も必要な場合は、ロール一覧に追加してください。
+`lumos-web`で所属する子チームは、親チーム`Lusy`のアクセス権限も継承します。`lusy`は親チームへの直接所属を管理します。
 
 ## メンバー定義の例
 
@@ -56,6 +61,7 @@ github_org_role: member
 discord_user_id: "123456789012345678"
 roles:
   - lusy
+  - lumos-web
 ```
 
 `members/alice.yaml`として配置します。`examples/`とテスト用データは本番に適用されません。初期状態の`members/`は空です。

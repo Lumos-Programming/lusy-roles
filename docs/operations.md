@@ -8,11 +8,13 @@
 
 ## ロールの追加と重複
 
+`lusy`はチーム共通の所属です。プロジェクトの権限は`lumos-web`、`lumos-discord-bot`のように分け、メンバー定義に組み合わせて指定します。
+
 ロール一覧の各項目は、次の形式です。
 
 ```yaml
-lusy:
-  description: GitHubの[Lusy] Lumos Webチームへの所属とDiscordのLumos Webロール
+lumos-web:
+  description: Lumos Webの開発
   github_teams:
     lusy-lumos-web: member
   discord_role_ids:
