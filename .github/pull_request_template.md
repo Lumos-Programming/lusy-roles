@@ -11,4 +11,4 @@
 - [ ] Discordサーバーに参加済みである。
 - [ ] 所有者・maintainer権限を含め、申請権限が適切である。
 - [ ] 削除の場合、GitHub Organization全体からの脱退を意図している。
-- [ ] マージ後は、管理者によるApplyの手動実行とEnvironmentの承認が必要であることを確認した。
+- [ ] マージ後は、production Environmentでの管理者の承認が必要であることを確認した。

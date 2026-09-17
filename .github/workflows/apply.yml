@@ -1,7 +1,9 @@
 name: Apply
-run-name: ${{ inputs.apply && 'Apply' || 'Plan' }} · ${{ github.event.pull_request.number || inputs.pr_number || 'main' }}
+run-name: ${{ (github.event_name == 'push' || inputs.apply) && 'Apply' || 'Plan' }} · ${{ github.event.pull_request.number || inputs.pr_number || 'main' }}
 
 on:
+  push:
+    branches: [main]
   # PRのコードは実行せず、mainのコードでメンバーYAMLだけを読み込む。
   pull_request_target:
     branches: [main]
@@ -28,17 +30,18 @@ permissions:
 # 適用途中のキャンセルによる部分反映を避ける。
 # GCSのstateロックでも、ローカル操作を含む同時更新を防ぐ。
 concurrency:
-  group: terraform-production
+  # 承認待ちのapplyがPRのplanを妨げないように分ける。
+  group: terraform-${{ (github.event_name == 'push' || inputs.apply) && 'production' || format('plan-{0}', github.event.pull_request.number || inputs.pr_number || 'main') }}
   cancel-in-progress: false
 
 jobs:
   apply:
-    name: ${{ inputs.apply && 'Apply' || 'Plan' }}
+    name: ${{ (github.event_name == 'push' || inputs.apply) && 'Apply' || 'Plan' }}
     if: >-
-      github.ref == 'refs/heads/main' && vars.TERRAFORM_ENABLED == 'true' && (github.event_name == 'workflow_dispatch' || !github.event.pull_request.draft)
+      github.ref == 'refs/heads/main' && vars.TERRAFORM_ENABLED == 'true' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request_target' && !github.event.pull_request.draft))
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    environment: ${{ inputs.apply && 'production' || 'plan' }}
+    environment: ${{ (github.event_name == 'push' || inputs.apply) && 'production' || 'plan' }}
     permissions:
       contents: read
       id-token: write
@@ -49,6 +52,7 @@ jobs:
       AQUA_GITHUB_TOKEN: ${{ github.token }}
       PR_NUMBER: ${{ github.event.pull_request.number || inputs.pr_number }}
       PR_SHA: ${{ github.event.pull_request.head.sha || inputs.pr_sha }}
+      APPLY_REQUESTED: ${{ github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.apply) }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -63,8 +67,6 @@ jobs:
         with:
           enable-cache: false
       - name: 実行設定を確認
-        env:
-          APPLY_REQUESTED: ${{ inputs.apply }}
         run: |
           if [[ -n "$PR_NUMBER" && "$APPLY_REQUESTED" == "true" ]]; then
             echo '::error::PRはplanのみ実行できます。applyをオフにしてください。'
@@ -142,18 +144,17 @@ jobs:
           app-id: ${{ vars.GH_APP_ID }}
           private-key: ${{ secrets.GH_APP_PRIVATE_KEY }}
           owner: Lumos-Programming
-          permission-members: ${{ inputs.apply && 'write' || 'read' }}
+          permission-members: ${{ env.APPLY_REQUESTED == 'true' && 'write' || 'read' }}
       - name: 既存の割り当てを読み込む
         id: memberships
         env:
           GITHUB_TOKEN: ${{ steps.github-app.outputs.token }}
           DISCORD_BOT_TOKEN: ${{ secrets.DISCORD_BOT_TOKEN }}
           PR_MEMBERS_PATH: ${{ steps.pr-input.outputs.members_path }}
-          APPLY_REQUESTED: ${{ inputs.apply }}
         run: |
           options=(--members-path "${PR_MEMBERS_PATH:-members}")
           # planは本番stateのコピーを使い、一時ローカルstateだけにimportする。
-          if [[ "$GITHUB_EVENT_NAME" == "workflow_dispatch" && "$APPLY_REQUESTED" == "true" && -z "$PR_NUMBER" ]]; then
+          if [[ "$APPLY_REQUESTED" == "true" && -z "$PR_NUMBER" ]]; then
             options+=(--adopt-remote)
           fi
           uv run --locked python scripts/prepare_membership_state.py "${options[@]}"
@@ -173,7 +174,7 @@ jobs:
           tfcmt "${comment_options[@]}" plan --patch -- \
             terraform -chdir="$TERRAFORM_DIR" plan -no-color -input=false -lock-timeout=5m -out=roles.tfplan
       - name: Apply
-        if: github.event_name == 'workflow_dispatch' && inputs.apply && env.PR_NUMBER == ''
+        if: env.APPLY_REQUESTED == 'true' && env.PR_NUMBER == ''
         env:
           GITHUB_TOKEN: ${{ steps.github-app.outputs.token }}
           DISCORD_BOT_TOKEN: ${{ secrets.DISCORD_BOT_TOKEN }}
@@ -190,7 +191,6 @@ jobs:
             terraform -chdir="$TERRAFORM_DIR" apply -no-color -input=false -lock-timeout=5m roles.tfplan
       - name: 結果を記録
         env:
-          APPLY_REQUESTED: ${{ inputs.apply }}
           PR_SHA: ${{ steps.pr-input.outputs.head_sha }}
         run: |
           {

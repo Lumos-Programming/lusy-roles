@@ -20,9 +20,9 @@
 
 GitHub ActionsのEnvironmentに`production`を作成し、デプロイ可能なブランチを`main`に限定します。Required reviewersに管理者チームを設定し、可能ならPrevent self-reviewを有効にしてください。管理者の承認迂回も無効にします。
 
-plan用に`plan` Environmentも作成し、こちらもブランチを`main`に限定します。**`plan`にはRequired reviewersや待機時間を設定しません。** `apply`をオフにした実行は`plan`を使用し、オンにした実行だけが`production`で承認を待ちます。
+plan用に`plan` Environmentも作成し、こちらもブランチを`main`に限定します。**`plan`にはRequired reviewersや待機時間を設定しません。** PRのplanと手動実行で`apply`をオフにした場合は`plan`を使用します。mainへのpushと、手動実行で`apply`をオンにした場合は`production`で承認を待ちます。
 
-Environmentの承認者はYAMLでは設定できません。GitHub側での設定が必要です。利用プラン・公開範囲によりEnvironmentの承認ルールを利用できない場合でも、この構成は手動起動しなければ適用しません。別担当者の承認まで必須にする運用は、対応プランまたは公開範囲で承認ルールを有効にしてから開始してください。
+Environmentの承認者はYAMLでは設定できません。GitHub側での設定が必要です。承認ルールを有効にしてから`TERRAFORM_ENABLED=true`にしてください。利用プラン・公開範囲により承認ルールを使えない場合は、運用を開始できません。
 
 ## 2. GCSとOIDC認証
 
@@ -77,11 +77,12 @@ bash scripts/bootstrap-gcs.sh
 - `main`ブランチと`plan`または`production` Environment。
 - `.github/workflows/apply.yml`。
 - 手動実行の`workflow_dispatch`イベント。
+- `production` Environmentに限り、mainの更新時の`push`イベント。
 - `plan` Environmentに限り、PRの自動plan用の`pull_request_target`イベントも許可する。
 
 リポジトリ名やワークフローファイル名を変更するときは、信頼条件も変更してください。Poolはこの用途専用にします。同じPoolへのProvider追加は認証可能な主体を増やすことがあります。
 
-既にOIDCを構築済みでsubjectを`production`だけに限定している場合は、`repo:Lumos-Programming/lusy-roles:environment:plan`も許可します。イベントを手動実行に限定している場合は、planのsubjectに限り`pull_request_target`も許可します。リポジトリID・main・ワークフローの制限は維持してください。
+既にOIDCを構築済みでsubjectを`production`だけに限定している場合は、`repo:Lumos-Programming/lusy-roles:environment:plan`も許可します。イベントを手動実行に限定している場合は、planのsubjectに`pull_request_target`、productionのsubjectに`push`も許可します。リポジトリID・main・ワークフローの制限は維持してください。
 
 Googleサービスアカウントの秘密鍵は作成しません。スクリプトが出力する以下の値を、`plan`と`production`両方のVariables、または共通のリポジトリVariablesに設定します。
 
@@ -138,9 +139,11 @@ Discord Developer Portalで複数人の開発者チームを用意し、その�
 2. `main`を選択し、`apply`をオフのまま手動実行する。
 3. planでGCS接続と差分を確認する。
 4. 最初の実メンバーのPRを作成し、[マージ前plan](operations.md#マージ前のprでplanを確認する)で差分を確認する。既存メンバーは[取り込み手順](operations.md#既存メンバーの取り込み)も確認してからレビュー・マージする。
-5. 最新の`main`でApplyを起動し、`apply`をオンにする。
+5. マージによって起動したApplyを開く。
 6. 管理者が`production`のReview deploymentsで対象コミットを確認し、承認する。
 7. 招待・チーム所属・Discordロールが実際に付くことを確認する。
+
+PoC中はproductionの承認を行わず、PRのplanで差分を確認します。承認待ちの実行はキャンセルできます。
 
 メンバーが空の状態では、各APIのメンバー管理権限を完全には検証できません。最初の実メンバーで一連の動作を確認します。
 

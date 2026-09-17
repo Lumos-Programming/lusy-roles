@@ -2,7 +2,7 @@
 
 Lusyは、Lumosのシステムを管理するチームです。このリポジトリでは、GitHubとDiscordへの参加・権限変更・退会を、レビュー済みのPull Request（PR）とTerraformで管理します。
 
-一人につき一つのYAMLファイルで権限を定義します。PRをレビュー・マージした後、管理者がGitHub Actionsから変更を適用します。
+一人につき一つのYAMLファイルで権限を定義します。PRをレビュー・マージするとGitHub Actionsが起動し、管理者の承認後に変更を適用します。
 
 ## このプロジェクトの目的
 
@@ -26,10 +26,10 @@ Lusyは、Lumosのシステムを管理するチームです。このリポジ�
 2. `members/<GitHubユーザー名>.yaml`を追加してPRを作る。
 3. GitHub Actionsが設定を検証し、ReadyなPRにplanの差分を表示する。
 4. 管理者が本人確認と権限のレビューを行い、PRのplanを確認してから承認・マージする。
-5. 管理者がApplyを手動起動し、production Environmentの承認後にTerraformのplan・applyを実行する。
+5. Applyが自動起動し、production Environmentで管理者が承認するとTerraformのplan・applyを実行する。
 6. 申請者がGitHub Organizationの招待を承諾し、両サービスの権限を確認する。
 
-マージだけでは権限は変わりません。Applyを手動起動し、production Environmentで承認すると適用されます。
+マージだけでは権限は変わりません。production Environmentで承認すると適用されます。PoC中は承認せず、planの結果を確認します。
 
 ## 設定済みの対象
 
@@ -75,7 +75,7 @@ config/roles.yaml           申請用ロールと実際の権限の対応
 terraform/                  メンバー定義から権限を管理するTerraform
 terraform/tests/            外部APIを使わないTerraformテスト
 scripts/                    入力検証・既存所属の検出・GCS初期構築
-.github/workflows/          PR・mainの検証と承認後の手動適用
+.github/workflows/          PR・mainの検証と承認後の適用
 .github/CODEOWNERS          権限変更をレビューする管理者チーム
 ```
 
@@ -92,9 +92,9 @@ GCSはTerraformのstateロックに対応しています。バージョニング
 
 PRの`Validate`では、認証情報を使わずに入力・YAMLの書式・Terraform構成・ロール変更のテストを検証します。
 
-Readyなメンバー変更PRでは、planを自動実行します。承認は不要です。PRのメンバーYAMLを読み込み、Terraformやロール一覧はmainのものを使います。最新のmainを取り込んだ、メンバーファイルのみのPRが対象です。再実行の方法は[運用ガイド](docs/operations.md#マージ前のprでplanを確認する)を参照してください。
+Readyなメンバー変更PRでは、planを自動実行します。PRのメンバーYAMLを読み込み、Terraformやロール一覧はmainのものを使います。最新のmainを取り込んだ、メンバーファイルのみのPRが対象です。再実行の方法は[運用ガイド](docs/operations.md#マージ前のprでplanを確認する)を参照してください。
 
-`Apply`は保存したplanを適用し、同時に一つだけ実行します。承認対象のコミットを固定し、承認待ちの間に`main`が更新された場合は停止します。最新の`main`から再度起動してください。GitHubとDiscordをまたぐ変更は一括で成功・失敗する処理ではなく、途中で失敗した場合は一部だけ反映されることがあります。
+`Apply`は保存したplanを適用し、同時に一つだけ実行します。承認対象のコミットを固定し、承認待ちの間に`main`が更新された場合は停止します。最新の`main`の実行を確認してください。applyの承認待ちはPRのplanを妨げません。GitHubとDiscordをまたぐ変更は一括で成功・失敗する処理ではなく、途中で失敗した場合は一部だけ反映されることがあります。
 
 planでは本番stateを一時ローカルstateへコピーし、検出した既存割り当てをそのコピーにimportします。本番stateと実際の権限は変更しません。承認後のapplyでは既存割り当てを本番stateにimportしてから、最新のplanを作成・適用します。
 
