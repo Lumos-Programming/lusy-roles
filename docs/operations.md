@@ -27,7 +27,7 @@ lumos-web:
 - 同じDiscordロールへの要求は重複させず、一つの割り当てとして管理する。
 - Organization所有者は、指定したGitHubチーム内で`maintainer`になる。
 - 対象者の既存の直接割り当てを検出し、定義にないGitHubチーム所属・Discordロールは取り消す。
-- GitHubの子チーム経由の継承所属は直接管理しない。`lusy-lumos-web`は親`lusy`のアクセス権限を継承する。
+- GitHubの子チーム経由の継承所属は直接管理しない。プロジェクトの子チームは親`lusy`のアクセス権限を継承する。
 - Discordの`@everyone`と`managed: true`の連携サービス管理ロールは維持する。
 
 ## 権限の取り消しと退会

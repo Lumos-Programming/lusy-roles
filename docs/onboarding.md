@@ -40,7 +40,7 @@ roles:
 
 - `lusy`：GitHubの`Lusy`チームへの所属。
 - `lumos-web`：GitHubの`[Lusy] Lumos Web`チームへの所属とDiscordの`Lumos Web`ロール。
-- `lumos-discord-bot`：Discordの`Discord Bot`ロール。
+- `lumos-discord-bot`：GitHubの`[Lusy] Lumos Discord Bot`チームへの所属とDiscordの`Discord Bot`ロール。
 
 複数のプロジェクトを担当する場合は、それぞれのロールを追加します。付与先のIDやチーム名は[ロール一覧](../config/roles.yaml)で確認できます。
 

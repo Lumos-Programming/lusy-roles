@@ -13,6 +13,7 @@ lumos-web:
 
 lumos-discord-bot:
   description: Lumos Discord Botの開発
-  github_teams: {}
+  github_teams:
+    lusy-lumos-discord-bot: member
   discord_role_ids:
     - "1383147563850535004"
